@@ -23,6 +23,11 @@ from formulas import FORMULA_CATALOG, get_column_case_insensitive
 from mock_data import generate_mock_weather_data
 from utils import get_session_dir, merge_csvs, compile_eda_html_report, compile_dimensionality_html_report
 
+# New Ingestion & Sampling analyzer imports
+from ingestion.llm_agent import IngestionAgent
+from ingestion.sampling_analyzer import analyze_sampling_rates
+from ingestion.smart_merge import smart_merge_dataframes
+
 app = FastAPI(title="Meteorological Pipeline API")
 
 # Enable CORS for frontend on port 3000
@@ -46,6 +51,12 @@ class IngestConfig(BaseModel):
     daysRange: List[int]
     interval: str
     sources: Dict[str, Any]
+
+class MergeConfig(BaseModel):
+    session_id: str
+    target_interval: str
+    agg_rules: Dict[str, str]
+    sources: List[str]
 
 class EDAApplyConfig(BaseModel):
     file_path: str
@@ -72,7 +83,7 @@ class DimFinalizeConfig(BaseModel):
     dropped_features: List[str]
 
 # -----------------
-# INGEST ENDPOINT
+# INGEST ENDPOINTS
 # -----------------
 @app.post("/api/ingest")
 async def ingest_data(config: IngestConfig):
@@ -80,113 +91,195 @@ async def ingest_data(config: IngestConfig):
     
     async def sse_generator():
         try:
-            # 1. Download phase
-            yield f"data: {json.dumps({'message': '🚀 Initializing Meteorological Data Ingestion Pipeline...', 'status': 'running'})}\n\n"
+            yield f"data: {json.dumps({'message': '🚀 Initializing Autonomous Ingestion Agent Layer...', 'status': 'running'})}\n\n"
             await asyncio.sleep(0.4)
             
-            active_sources = []
+            active_sources = {}
             for src_name, src_val in config.sources.items():
                 if src_val.get("enabled", False):
-                    active_sources.append(src_name.upper())
+                    active_sources[src_name.upper()] = src_val
                     
             if not active_sources:
                 yield f"data: {json.dumps({'message': '❌ Error: No meteorological sources selected. Aborting.', 'status': 'failed'})}\n\n"
                 return
                 
-            sources_str = ", ".join(active_sources)
+            sources_str = ", ".join(active_sources.keys())
             yield f"data: {json.dumps({'message': f'Active sources resolved: {sources_str}', 'status': 'running'})}\n\n"
             await asyncio.sleep(0.4)
             
-            # Simulate downloading files per source
-            csv_paths = []
-            for src in active_sources:
-                yield f"data: {json.dumps({'message': f'🌐 Querying remote server for {src} raw archives...', 'status': 'running'})}\n\n"
-                await asyncio.sleep(0.6)
-                
-                for yr in config.years:
-                    yield f"data: {json.dumps({'message': f'⟳ Downloading {src} NetCDF records for year {yr}...', 'status': 'running'})}\n\n"
-                    await asyncio.sleep(0.5)
-                    
-                yield f"data: {json.dumps({'message': f'✓ Ingestion of {src} NetCDF files completed. Saving to workspace.', 'status': 'done'})}\n\n"
-                await asyncio.sleep(0.4)
-                
-                # Convert NetCDF to CSV
-                yield f"data: {json.dumps({'message': f'🛠️ Parsing NetCDF metadata and converting to local CSV variables...', 'status': 'running'})}\n\n"
-                await asyncio.sleep(0.6)
-                
-                # Generate mock data for this source
-                single_config = config.dict()
-                single_config["sources"] = {src.lower(): {"enabled": True}}
-                df_src = generate_mock_weather_data(single_config)
-                
-                # Keep relevant columns for specific source
-                keep_cols = ["timestamp", "latitude", "longitude", "solar_constant_offset"]
-                if src == "ERA5":
-                    keep_cols.extend([
-                        "2m_temperature", "2m_dewpoint_temperature", "pressure",
-                        "u_component_of_wind", "v_component_of_wind", "specific_humidity",
-                        "convective_available_potential_energy", "convective_inhibition",
-                        "total_precipitation", "total_column_water_vapour",
-                        "t_300", "t_500", "t_700", "t_850", "t_925",
-                        "td_300", "td_500", "td_700", "td_850", "td_925",
-                        "specific_humidity_300", "specific_humidity_500", "specific_humidity_700", "specific_humidity_850", "specific_humidity_925",
-                        "geopotential_300", "geopotential_500", "geopotential_700", "geopotential_850", "geopotential_925",
-                        "u_300", "u_500", "u_700", "u_850", "u_925",
-                        "v_300", "v_500", "v_700", "v_850", "v_925"
-                    ])
-                elif src == "IMD":
-                    keep_cols.extend(["rainfall", "max_temp", "min_temp"])
-                elif src == "NASA":
-                    keep_cols.extend(["trmm_precipitation", "gpm_precipitation", "lightning_flash_density"])
-                    
-                keep_cols = [c for c in keep_cols if c in df_src.columns]
-                df_src_filtered = df_src[keep_cols]
-                
-                # Save source-specific CSV
-                src_filename = f"{src.lower()}_variables_{datetime.datetime.now().strftime('%Y%m%d%H%M%S')}.csv"
-                src_path = os.path.join(session_dir, src_filename)
-                df_src_filtered.to_csv(src_path, index=False)
-                csv_paths.append(src_path)
-                
-                yield f"data: {json.dumps({'message': f'✓ Converted {src} data to CSV: {src_filename}', 'status': 'done'})}\n\n"
+            agent = IngestionAgent()
+            loop = asyncio.get_running_loop()
+            queue = asyncio.Queue()
+            
+            def make_log_callback(src_name):
+                def log_callback(msg, status="running", is_reasoning=False):
+                    loop.call_soon_threadsafe(
+                        queue.put_nowait,
+                        {"message": f"[{src_name}] {msg}", "status": status, "is_reasoning": is_reasoning}
+                    )
+                return log_callback
+            
+            # Download sources sequentially
+            dfs = {}
+            bbox = {
+                "north": config.north,
+                "south": config.south,
+                "west": config.west,
+                "east": config.east
+            }
+            
+            for src_name, src_val in active_sources.items():
+                yield f"data: {json.dumps({'message': f'🌐 Engaging Ingestion Agent for source: {src_name}...', 'status': 'running'})}\n\n"
                 await asyncio.sleep(0.3)
                 
-            # 2. Merge Phase
-            yield f"data: {json.dumps({'message': '🔄 Merging source variables on spatial-temporal keys...', 'status': 'running'})}\n\n"
-            await asyncio.sleep(0.6)
-            
-            merged_filename = f"raw_dataset_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
-            merged_path = os.path.join(session_dir, merged_filename)
-            
-            merged_df = merge_csvs(csv_paths, merged_path)
-            
-            if merged_df is not None:
-                total_rows = len(merged_df)
-                total_cols = len(merged_df.columns)
-                file_size_mb = os.path.getsize(merged_path) / (1024 * 1024)
+                # Execute agent in background thread to keep FastAPI fully responsive
+                task = asyncio.create_task(asyncio.to_thread(
+                    agent.run,
+                    src_name,
+                    src_val,
+                    config.years,
+                    config.months,
+                    config.daysRange,
+                    bbox,
+                    config.interval,
+                    make_log_callback(src_name)
+                ))
                 
-                # Stats payload
-                min_time = merged_df["timestamp"].min()
-                max_time = merged_df["timestamp"].max()
-                date_range_str = f"{min_time.strftime('%Y-%m-%d')} to {max_time.strftime('%Y-%m-%d')}"
+                # Stream logs in real-time
+                while not task.done() or not queue.empty():
+                    try:
+                        log_item = await asyncio.wait_for(queue.get(), timeout=0.05)
+                        yield f"data: {json.dumps(log_item)}\n\n"
+                    except asyncio.TimeoutError:
+                        await asyncio.sleep(0.05)
                 
-                stats = {
-                    "filename": merged_filename,
-                    "total_rows": total_rows,
-                    "total_columns": total_cols,
-                    "date_range": date_range_str,
-                    "sources_included": active_sources,
-                    "file_size": f"{file_size_mb:.2f} MB"
+                # Retrieve dataframe result
+                df_src = await task
+                
+                # Save source-specific CSV
+                src_filename = f"source_{src_name.lower()}.csv"
+                src_path = os.path.join(session_dir, src_filename)
+                df_src.to_csv(src_path, index=False)
+                
+                dfs[src_name] = df_src
+                yield f"data: {json.dumps({'message': f'✓ Ingestion complete for {src_name}. Saved variables to local repository.', 'status': 'done'})}\n\n"
+                await asyncio.sleep(0.3)
+                
+            # 2. Sampling Analyzer Phase
+            yield f"data: {json.dumps({'message': '🔬 Initiating high-resolution temporal sampling rate audit...', 'status': 'running'})}\n\n"
+            await asyncio.sleep(0.5)
+            
+            # Analyze rates
+            report = analyze_sampling_rates(dfs)
+            
+            # Convert report to dict for JSON transfer
+            report_dict = {
+                "recommended_common_interval": report.recommended_common_interval,
+                "sources": {
+                    k: {
+                        "source_name": v.source_name,
+                        "variables": v.variables,
+                        "detected_interval": v.detected_interval,
+                        "median_interval_seconds": v.median_interval_seconds,
+                        "min_interval_seconds": v.min_interval_seconds,
+                        "max_interval_seconds": v.max_interval_seconds,
+                        "irregular_gaps_pct": v.irregular_gaps_pct,
+                        "missing_timestamps_count": v.missing_timestamps_count,
+                        "missing_timestamps_pct": v.missing_timestamps_pct,
+                        "duplicate_timestamps_count": v.duplicate_timestamps_count
+                    }
+                    for k, v in report.sources.items()
                 }
-                
-                yield f"data: {json.dumps({'message': '🎉 Dataset successfully merged and finalized!', 'status': 'completed', 'stats': stats})}\n\n"
-            else:
-                yield f"data: {json.dumps({'message': '❌ Critical Error: Merged dataset is empty or failed.', 'status': 'failed'})}\n\n"
-                
+            }
+            
+            yield f"data: {json.dumps({'message': '✓ Temporal analysis complete! Pausing for spatial-temporal merge confirmation...', 'status': 'analyzed', 'report': report_dict})}\n\n"
+            
         except Exception as e:
+            import traceback
+            traceback.print_exc()
             yield f"data: {json.dumps({'message': f'❌ Operational Error: {str(e)}', 'status': 'failed'})}\n\n"
             
     return StreamingResponse(sse_generator(), media_type="text/event-stream")
+
+
+@app.post("/api/ingest/merge")
+async def merge_data(config: MergeConfig):
+    session_dir = get_session_dir(config.session_id)
+    
+    # Load individual dataframes
+    dataframes = {}
+    for src in config.sources:
+        src_filename = f"source_{src.lower()}.csv"
+        src_path = os.path.join(session_dir, src_filename)
+        if os.path.exists(src_path):
+            dataframes[src] = pd.read_csv(src_path)
+            
+    if not dataframes:
+        raise HTTPException(status_code=400, detail="No source dataframes found in workspace to merge.")
+        
+    try:
+        merged_filename = f"raw_dataset_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+        merged_path = os.path.join(session_dir, merged_filename)
+        
+        # Execute smart merge
+        stats = smart_merge_dataframes(dataframes, config.target_interval, config.agg_rules, merged_path)
+        
+        # Save sampling report JSON in session for EDA tab use later
+        sampling_report_path = os.path.join(session_dir, "sampling_report.json")
+        
+        # Re-run sampling analyzer on raw loaded dataframes to save in details
+        report = analyze_sampling_rates(dataframes)
+        report_dict = {
+            "recommended_common_interval": report.recommended_common_interval,
+            "sources": {
+                k: {
+                    "source_name": v.source_name,
+                    "variables": v.variables,
+                    "detected_interval": v.detected_interval,
+                    "median_interval_seconds": v.median_interval_seconds,
+                    "min_interval_seconds": v.min_interval_seconds,
+                    "max_interval_seconds": v.max_interval_seconds,
+                    "irregular_gaps_pct": v.irregular_gaps_pct,
+                    "missing_timestamps_count": v.missing_timestamps_count,
+                    "missing_timestamps_pct": v.missing_timestamps_pct,
+                    "duplicate_timestamps_count": v.duplicate_timestamps_count
+                }
+                for k, v in report.sources.items()
+            }
+        }
+        
+        with open(sampling_report_path, "w", encoding="utf-8") as f:
+            json.dump({
+                "report": report_dict,
+                "stats": stats
+            }, f)
+            
+        # Compute final size in MB
+        file_size_mb = os.path.getsize(merged_path) / (1024 * 1024)
+        
+        # Load merged dataframe to find actual date ranges
+        merged_df = pd.read_csv(merged_path)
+        merged_df["timestamp"] = pd.to_datetime(merged_df["timestamp"])
+        min_time = merged_df["timestamp"].min()
+        max_time = merged_df["timestamp"].max()
+        date_range_str = f"{min_time.strftime('%Y-%m-%d')} to {max_time.strftime('%Y-%m-%d')}"
+        
+        return {
+            "status": "success",
+            "message": "🎉 Spatial-temporal merge and resampling executed successfully!",
+            "stats": {
+                "filename": merged_filename,
+                "total_rows": stats["total_rows"],
+                "total_columns": stats["total_columns"],
+                "date_range": date_range_str,
+                "sources_included": config.sources,
+                "file_size": f"{file_size_mb:.2f} MB"
+            }
+        }
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Merge execution error: {str(e)}")
 
 # -----------------
 # EDA RUN ENDPOINT
@@ -409,6 +502,16 @@ async def eda_analyze(payload: Dict[str, str]):
             temp_analyzed_name = f"temp_analyzed_{session_id}.csv"
             df.to_csv(os.path.join(session_dir, temp_analyzed_name), index=False)
             
+            # Read sampling report if present
+            sampling_report = None
+            sampling_report_path = os.path.join(session_dir, "sampling_report.json")
+            if os.path.exists(sampling_report_path):
+                try:
+                    with open(sampling_report_path, "r", encoding="utf-8") as sf:
+                        sampling_report = json.load(sf)
+                except Exception:
+                    pass
+
             # Form final metadata package
             analysis_payload = {
                 "shape": shape,
@@ -423,7 +526,8 @@ async def eda_analyze(payload: Dict[str, str]):
                 "distributions": distributions,
                 "correlation": correlation,
                 "temporal_trends": temporal_trends,
-                "temp_analyzed_file": temp_analyzed_name
+                "temp_analyzed_file": temp_analyzed_name,
+                "sampling_report": sampling_report
             }
             
             yield f"data: {json.dumps({'message': '🏆 Full Exploratory Data Analysis complete!', 'status': 'completed', 'results': analysis_payload})}\n\n"
@@ -580,6 +684,16 @@ async def eda_apply(config: EDAApplyConfig):
         
         missingness_report = df.isnull().mean().to_dict()
         
+        # Read sampling report if present
+        sampling_report = None
+        sampling_report_path = os.path.join(session_dir, "sampling_report.json")
+        if os.path.exists(sampling_report_path):
+            try:
+                with open(sampling_report_path, "r", encoding="utf-8") as sf:
+                    sampling_report = json.load(sf)
+            except Exception:
+                pass
+
         # Log Summary
         eda_summary = {
             "shape": list(df.shape),
@@ -591,7 +705,8 @@ async def eda_apply(config: EDAApplyConfig):
             "dropped_cols": dropped_cols,
             "missingness": {k: float(v * 100) for k, v in missingness_report.items()},
             "correlation": correlation,
-            "distributions": distributions
+            "distributions": distributions,
+            "sampling_report": sampling_report
         }
         
         html_report_filename = f"eda_report_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.html"

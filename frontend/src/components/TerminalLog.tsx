@@ -3,8 +3,9 @@ import { Terminal, ShieldAlert } from 'lucide-react';
 
 interface TerminalLogLine {
   message: string;
-  status: 'running' | 'done' | 'completed' | 'failed' | 'idle';
+  status: 'running' | 'done' | 'completed' | 'failed' | 'idle' | 'analyzed';
   timestamp: string;
+  isReasoning?: boolean;
 }
 
 interface TerminalLogProps {
@@ -45,6 +46,21 @@ export default function TerminalLog({ logs, title = "Data Pipeline Progress Term
           </div>
         ) : (
           logs.map((log, index) => {
+            if (log.isReasoning) {
+              return (
+                <div key={index} className="my-2 select-none">
+                  <details className="text-yellow-400 border border-yellow-500/25 bg-yellow-500/5 rounded-xl p-3 cursor-pointer">
+                    <summary className="font-bold font-mono flex items-center gap-1.5 text-yellow-500 text-xs">
+                      <span>🤖 Agent reasoning</span>
+                    </summary>
+                    <pre className="whitespace-pre-wrap text-[10px] mt-2 font-mono text-yellow-300/90 pl-3 border-l-2 border-yellow-500/30 overflow-x-auto">
+                      {log.message}
+                    </pre>
+                  </details>
+                </div>
+              );
+            }
+
             const isDone = log.status === 'done' || log.status === 'completed';
             const isFailed = log.status === 'failed';
             const isRunning = log.status === 'running';

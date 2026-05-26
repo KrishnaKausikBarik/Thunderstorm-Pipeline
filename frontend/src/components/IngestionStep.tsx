@@ -67,10 +67,20 @@ export default function IngestionStep({ sessionId, onIngestSuccess }: IngestionS
   const [showNasaPass, setShowNasaPass] = useState(false);
   const [nasaDatasets, setNasaDatasets] = useState<string[]>(['GPM IMERG']);
 
+  // Custom Data Source state
+  const [customEnabled, setCustomEnabled] = useState(false);
+  const [customUrl, setCustomUrl] = useState('');
+
   // SSE & Pipeline run state
   const [logs, setLogs] = useState<any[]>([]);
   const [isRunning, setIsRunning] = useState(false);
   const [ingestStats, setIngestStats] = useState<IngestStats | null>(null);
+  const [samplingReport, setSamplingReport] = useState<any | null>(null);
+
+  // Smart Merge User Override state
+  const [targetMergeInterval, setTargetMergeInterval] = useState<string>('Daily');
+  const [variableAggRules, setVariableAggRules] = useState<Record<string, string>>({});
+  const [isMerging, setIsMerging] = useState(false);
 
   // Check if pressure levels are needed
   const isPressureLevelNeeded = () => {
@@ -83,6 +93,7 @@ export default function IngestionStep({ sessionId, onIngestSuccess }: IngestionS
     if (isRunning) return;
     setLogs([]);
     setIngestStats(null);
+    setSamplingReport(null);
     setIsRunning(true);
 
     const payload = {
@@ -115,18 +126,14 @@ export default function IngestionStep({ sessionId, onIngestSuccess }: IngestionS
           username: nasaUser || null,
           password: nasaPass || null,
           datasets: nasaDatasets
+        },
+        custom: {
+          enabled: customEnabled,
+          url: customUrl
         }
       }
     };
 
-    // We send payload to trigger ingestion via POST first, then SSE listens, or we pass payload in SSE query parameter.
-    // In our main.py, POST `/api/ingest` accepts the JSON and streams the progress directly back as EventSourceResponse!
-    // Wait, an EventSource can only make GET requests by default, but we can do a POST trigger, and then standard SSE, or we can use custom headers,
-    // or we can simply make our FastAPI GET /api/ingest accept config JSON serialized in a query parameter, or let the POST start a job and return a job ID,
-    // or just run a standard Fetch POST, and read the body stream! Yes, browser Fetch supports streaming response bodies using `response.body.getReader()`,
-    // which allows POST requests with full SSE-like streaming! That is incredibly powerful, works perfectly, and doesn't suffer from GET query length limits!
-    // Let's implement that fetch-based stream reader! It is 100% robust.
-    
     runStreamingFetch(payload);
   };
 
@@ -165,11 +172,34 @@ export default function IngestionStep({ sessionId, onIngestSuccess }: IngestionS
                 {
                   message: event.message,
                   status: event.status,
-                  timestamp: new Date().toLocaleTimeString()
+                  timestamp: new Date().toLocaleTimeString(),
+                  isReasoning: event.is_reasoning
                 }
               ]);
 
-              if (event.status === 'completed' && event.stats) {
+              if (event.status === 'analyzed' && event.report) {
+                setSamplingReport(event.report);
+                setTargetMergeInterval(event.report.recommended_common_interval);
+                setIsRunning(false);
+
+                // Auto-populate default aggregation rules
+                const initialRules: Record<string, string> = {};
+                Object.keys(event.report.sources).forEach(srcKey => {
+                  event.report.sources[srcKey].variables.forEach((v: string) => {
+                    const vLower = v.toLowerCase();
+                    if (vLower === 'total_precipitation') {
+                      initialRules[v] = 'sum';
+                    } else if (vLower.includes('temp') || vLower.includes('humidity') || vLower.includes('dewpoint') || vLower.includes('pressure')) {
+                      initialRules[v] = 'mean';
+                    } else if (vLower.includes('cape') || vLower.includes('precip') || vLower.includes('rain') || vLower.includes('cin')) {
+                      initialRules[v] = 'max';
+                    } else {
+                      initialRules[v] = 'mean';
+                    }
+                  });
+                });
+                setVariableAggRules(initialRules);
+              } else if (event.status === 'completed' && event.stats) {
                 setIngestStats(event.stats);
                 onIngestSuccess(event.stats.filename);
                 setIsRunning(false);
@@ -190,6 +220,67 @@ export default function IngestionStep({ sessionId, onIngestSuccess }: IngestionS
         }
       ]);
       setIsRunning(false);
+    }
+  };
+
+  const handleConfirmMerge = async () => {
+    if (!samplingReport || isMerging) return;
+    setIsMerging(true);
+    
+    setLogs((prev) => [
+      ...prev,
+      {
+        message: "🔄 Initiating spatial-temporal Smart Merge on latitude/longitude grid coordinate pairs...",
+        status: "running",
+        timestamp: new Date().toLocaleTimeString()
+      }
+    ]);
+    
+    try {
+      const activeSourcesList = Object.keys(samplingReport.sources);
+      const response = await fetch(`${API_BASE}/ingest/merge`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          session_id: sessionId,
+          target_interval: targetMergeInterval,
+          agg_rules: variableAggRules,
+          sources: activeSourcesList
+        })
+      });
+      
+      const res = await response.json();
+      if (!response.ok) {
+        throw new Error(res.detail || "Failed to execute smart merge.");
+      }
+      
+      setLogs((prev) => [
+        ...prev,
+        {
+          message: "✓ Spatial-temporal merge and resampling executed successfully!",
+          status: "done",
+          timestamp: new Date().toLocaleTimeString()
+        },
+        {
+          message: "🎉 Meteorological Ingestion & Co-registration pipeline complete!",
+          status: "completed",
+          timestamp: new Date().toLocaleTimeString()
+        }
+      ]);
+      
+      setIngestStats(res.stats);
+      onIngestSuccess(res.stats.filename);
+    } catch (err: any) {
+      setLogs((prev) => [
+        ...prev,
+        {
+          message: `❌ Smart Merge Error: ${err.message}`,
+          status: "failed",
+          timestamp: new Date().toLocaleTimeString()
+        }
+      ]);
+    } finally {
+      setIsMerging(false);
     }
   };
 
@@ -362,7 +453,7 @@ export default function IngestionStep({ sessionId, onIngestSuccess }: IngestionS
       <div className="bg-cardBg border border-borderBg p-6 rounded-2xl mt-8 shadow-lg">
         <h2 className="text-lg font-bold text-white mb-6 border-b border-borderBg pb-2">Select Data Sources</h2>
         
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           
           {/* ERA5 CARD */}
           <div className={`border rounded-xl p-5 transition-all duration-300 ${
@@ -606,6 +697,36 @@ export default function IngestionStep({ sessionId, onIngestSuccess }: IngestionS
             )}
           </div>
 
+          {/* CUSTOM DATA SOURCE CARD */}
+          <div className={`border rounded-xl p-5 transition-all duration-300 ${
+            customEnabled ? 'bg-black/10 border-accentRed shadow-md' : 'bg-darkBg border-borderBg/50 opacity-60'
+          }`}>
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="font-extrabold text-sm text-white">Custom Portal URL</h3>
+                <span className="text-[10px] text-gray-400">Autonomous LLM Agent Ingestion</span>
+              </div>
+              <input 
+                type="checkbox" checked={customEnabled} onChange={e => setCustomEnabled(e.target.checked)}
+                className="w-5 h-5 accent-accentRed cursor-pointer"
+              />
+            </div>
+
+            {customEnabled && (
+              <div className="mt-4 space-y-4 pt-4 border-t border-borderBg/40 animate-fade-in">
+                <div>
+                  <label className="text-[10px] text-gray-400 font-bold block mb-1">DATA PORTAL URL</label>
+                  <input 
+                    type="text" value={customUrl} onChange={e => setCustomUrl(e.target.value)}
+                    placeholder="https://weather-bulletin.gov/records"
+                    className="w-full bg-darkBg border border-borderBg rounded p-1.5 text-xs focus:outline-none focus:border-accentRed font-mono"
+                  />
+                  <span className="text-[9px] text-gray-500 mt-1 block">Paste weather data portal URL. The LLM Agent will autonomously extract coordinates & variables.</span>
+                </div>
+              </div>
+            )}
+          </div>
+
         </div>
       </div>
 
@@ -649,6 +770,140 @@ export default function IngestionStep({ sessionId, onIngestSuccess }: IngestionS
       {(isRunning || logs.length > 0) && (
         <div className="mt-8">
           <TerminalLog logs={logs} />
+        </div>
+      )}
+
+      {/* SAMPLING REPORT & SMART MERGE PANEL */}
+      {samplingReport && !ingestStats && (
+        <div className="bg-cardBg/95 border-2 border-borderBg p-6 rounded-3xl mt-8 shadow-2xl animate-fade-in">
+          <h2 className="text-lg font-bold text-white mb-4 border-b border-borderBg pb-2 flex items-center gap-2">
+            <span>🔬 Gridded Temporal Sampling Report</span>
+            <span className="bg-blue-500/10 border border-blue-500/30 px-2 py-0.5 rounded text-3xs font-bold text-blue-400">Analysis Complete</span>
+          </h2>
+          <p className="text-xs text-gray-400 mb-6">Review the detected sampling intervals and coordinate density across ingested raw archives prior to spatial-temporal co-registration.</p>
+          
+          <div className="overflow-x-auto mb-6 rounded-xl border border-borderBg bg-darkBg/50">
+            <table className="min-w-full divide-y divide-borderBg text-left text-xs">
+              <thead className="bg-black/40 text-gray-400 font-bold uppercase tracking-wider text-2xs">
+                <tr>
+                  <th className="px-5 py-3">Source</th>
+                  <th className="px-5 py-3">Variables</th>
+                  <th className="px-5 py-3">Detected Interval</th>
+                  <th className="px-5 py-3">Irregular Gaps</th>
+                  <th className="px-5 py-3">Missing Expected (Pct)</th>
+                  <th className="px-5 py-3">Duplicates</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-borderBg text-gray-300">
+                {Object.keys(samplingReport.sources).map(srcKey => {
+                  const sdata = samplingReport.sources[srcKey];
+                  const hasIrregular = sdata.irregular_gaps_pct > 10;
+                  const hasMissing = sdata.missing_timestamps_count > 0;
+                  return (
+                    <tr key={srcKey} className="hover:bg-black/10 transition-colors">
+                      <td className="px-5 py-4 font-bold text-white font-mono">{srcKey}</td>
+                      <td className="px-5 py-4 truncate max-w-[200px]" title={sdata.variables.join(', ')}>{sdata.variables.join(', ')}</td>
+                      <td className="px-5 py-4 font-semibold text-white">{sdata.detected_interval}</td>
+                      <td className={`px-5 py-4 font-semibold ${hasIrregular ? 'text-red-400' : 'text-green-400'}`}>
+                        {sdata.irregular_gaps_pct.toFixed(1)}%
+                      </td>
+                      <td className={`px-5 py-4 font-semibold ${hasMissing ? 'text-red-400' : 'text-green-400'}`}>
+                        {sdata.missing_timestamps_count} ({sdata.missing_timestamps_pct.toFixed(1)}%)
+                      </td>
+                      <td className="px-5 py-4 text-white font-mono">{sdata.duplicate_timestamps_count}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Merge Recommendation Alert */}
+          <div className="bg-accentRed/5 border border-accentRed/20 rounded-xl p-4 mb-8">
+            <h4 className="text-accentRed font-extrabold text-xs uppercase tracking-wider mb-1">Coarsest Alignment Recommendation</h4>
+            <p className="text-2xs text-gray-400 leading-relaxed">
+              Recommended merge interval: <span className="text-white font-bold">{samplingReport.recommended_common_interval}</span>. 
+              Sources will be resampled using: <span className="text-white font-mono">mean</span> for temperature/humidity/pressure/wind variables, 
+              <span className="text-white font-mono">max</span> for CAPE/CIN/precipitation, and <span className="text-white font-mono">sum</span> for total_precipitation.
+            </p>
+          </div>
+
+          {/* User Overrides Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 border-t border-borderBg/40 pt-6">
+            {/* Target Interval Selection */}
+            <div>
+              <label className="text-xs text-gray-400 font-bold uppercase block mb-2">Target Resampling Interval</label>
+              <select
+                value={targetMergeInterval}
+                onChange={e => setTargetMergeInterval(e.target.value)}
+                className="w-full bg-darkBg border border-borderBg text-gray-200 rounded-xl p-3 text-sm focus:outline-none focus:border-accentRed font-semibold"
+              >
+                {['1-hourly', '3-hourly', '6-hourly', '12-hourly', 'Daily', 'Weekly'].filter(intervalOption => {
+                  const ranks: Record<string, number> = {
+                    '1-hourly': 2, '3-hourly': 3, '6-hourly': 4, '12-hourly': 5, 'daily': 6, 'weekly': 7
+                  };
+                  const optRank = ranks[intervalOption.toLowerCase()] || 8;
+                  
+                  let finestActiveRank = 9;
+                  Object.keys(samplingReport.sources).forEach(sk => {
+                    const dInt = samplingReport.sources[sk].detected_interval.toLowerCase();
+                    const r = ranks[dInt] || 2;
+                    if (r < finestActiveRank) finestActiveRank = r;
+                  });
+                  
+                  return optRank >= finestActiveRank;
+                }).map(opt => (
+                  <option key={opt} value={opt}>{opt}</option>
+                ))}
+              </select>
+              <span className="text-[10px] text-gray-500 mt-1.5 block">Resampling downscales finer data to match coarser rates, clearing gaps.</span>
+            </div>
+
+            {/* Aggregation Rules Selection */}
+            <div>
+              <label className="text-xs text-gray-400 font-bold uppercase block mb-2">Per-Variable Aggregation Methods</label>
+              <div className="bg-darkBg border border-borderBg rounded-xl p-4 max-h-[220px] overflow-y-auto space-y-3 custom-scrollbar">
+                {Object.keys(variableAggRules).map(v => (
+                  <div key={v} className="flex justify-between items-center text-xs">
+                    <span className="font-mono text-gray-300 truncate max-w-[180px]">{v}</span>
+                    <select
+                      value={variableAggRules[v]}
+                      onChange={e => setVariableAggRules(prev => ({ ...prev, [v]: e.target.value }))}
+                      className="bg-cardBg border border-borderBg text-2xs text-gray-300 rounded p-1 focus:outline-none"
+                    >
+                      <option value="mean">mean</option>
+                      <option value="max">max</option>
+                      <option value="min">min</option>
+                      <option value="sum">sum</option>
+                      <option value="first">first</option>
+                    </select>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Confirm & Merge Trigger */}
+          <div className="mt-8 pt-4 border-t border-borderBg/30 flex justify-center">
+            <button
+              onClick={handleConfirmMerge}
+              disabled={isMerging}
+              className={`px-8 py-3.5 rounded-xl font-extrabold text-sm uppercase tracking-wider flex items-center gap-3 transition-all ${
+                isMerging 
+                  ? 'bg-gray-600 cursor-not-allowed text-gray-400' 
+                  : 'bg-successGreen hover:bg-successGreenHover text-white shadow-lg shadow-successGreen/25 hover:scale-105'
+              }`}
+            >
+              {isMerging ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  <span>Merging & Resampling Data...</span>
+                </>
+              ) : (
+                <span>Confirm & Smart Merge</span>
+              )}
+            </button>
+          </div>
         </div>
       )}
 
