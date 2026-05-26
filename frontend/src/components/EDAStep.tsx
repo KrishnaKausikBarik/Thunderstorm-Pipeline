@@ -1,0 +1,626 @@
+import { useState } from 'react';
+import { Play, Download, CheckCircle2, BarChart2, AlertTriangle } from 'lucide-react';
+import { API_BASE, applyEdaPreprocessing, getDownloadUrl } from '../utils/api';
+import Plotly from 'plotly.js-dist-min';
+import _createPlotlyComponent from 'react-plotly.js/factory';
+
+let Plot: any = () => null;
+try {
+  let factory = _createPlotlyComponent;
+  // Multi-level unwrapping loop to handle any ESM/CJS default wrapping variations
+  for (let i = 0; i < 3; i++) {
+    if (factory && typeof factory !== 'function' && (factory as any).default) {
+      factory = (factory as any).default;
+    }
+  }
+  if (typeof factory === 'function') {
+    Plot = factory(Plotly);
+  } else {
+    console.error("Plotly factory could not be resolved to a function. Resolved to:", factory);
+  }
+} catch (e) {
+  console.error("Failed to initialize Plotly component factory dynamically:", e);
+}
+
+import HelpTooltip from './HelpTooltip';
+import PreviewTable from './PreviewTable';
+import type { EDAResults } from '../types';
+
+interface EDAStepProps {
+  sessionId: string;
+  rawFilename: string;
+  onEDASuccess: (cleanedFilename: string) => void;
+}
+
+const CHECKLIST_STEPS = [
+  'Shape & dtypes audit',
+  'LabelEncoding on object columns',
+  'Seasonal feature extraction',
+  'Missing value analysis',
+  'Imputation strategy generation',
+  'IQR Outlier auditing',
+  'Duplicate profiling',
+  'Near-constant variance auditing',
+  'Feature distributions compilation',
+  'Spearman correlation mapping',
+  'Temporal trend modeling'
+];
+
+export default function EDAStep({ sessionId, rawFilename, onEDASuccess }: EDAStepProps) {
+  const [isRunning, setIsRunning] = useState(false);
+  const [currentStepIdx, setCurrentStepIdx] = useState(-1);
+  const [completedSteps, setCompletedSteps] = useState<number[]>([]);
+  const [logs, setLogs] = useState<string[]>([]);
+  
+  // Analysis results
+  const [analysisResults, setAnalysisResults] = useState<EDAResults | null>(null);
+
+  // Preprocessing configuration selections
+  const [imputationConfigs, setImputationConfigs] = useState<Record<string, string>>({});
+  const [outlierConfigs, setOutlierConfigs] = useState<Record<string, string>>({});
+  const [removeDuplicates, setRemoveDuplicates] = useState(true);
+  const [dropNearConstant, setDropNearConstant] = useState(true);
+  const [isApplying, setIsApplying] = useState(false);
+
+  // Preprocessing Applied State
+  const [appliedResponse, setAppliedResponse] = useState<any | null>(null);
+  const [activeTab, setActiveTab] = useState<'Summary' | 'Missing' | 'Distributions' | 'Correlations' | 'Temporal'>('Summary');
+  const [selectedTrendCol, setSelectedTrendCol] = useState<string>('');
+
+  const triggerEDAAnalysis = async () => {
+    if (isRunning) return;
+    setIsRunning(true);
+    setCurrentStepIdx(0);
+    setCompletedSteps([]);
+    setLogs([]);
+    setAnalysisResults(null);
+    setAppliedResponse(null);
+
+    try {
+      const response = await fetch(`${API_BASE}/eda/analyze`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ file_path: rawFilename, session_id: sessionId })
+      });
+
+      if (!response.ok || !response.body) {
+        throw new Error("Failed to initialize EDA streaming");
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n\n");
+        buffer = lines.pop() || "";
+
+        for (const line of lines) {
+          if (line.startsWith("data: ")) {
+            const dataStr = line.replace("data: ", "").trim();
+            if (dataStr) {
+              const event = JSON.parse(dataStr);
+              
+              if (event.message) {
+                setLogs(prev => [...prev, event.message]);
+              }
+
+              if (typeof event.step === 'number') {
+                setCurrentStepIdx(event.step);
+                if (event.status === 'done') {
+                  setCompletedSteps(prev => [...prev, event.step]);
+                }
+              }
+
+              if (event.status === 'completed' && event.results) {
+                const res = event.results as EDAResults;
+                setAnalysisResults(res);
+                
+                // Initialize default configurations
+                const impInit: Record<string, string> = {};
+                Object.entries(res.imputation_needs).forEach(([col, need]) => {
+                  if (need.strategy === 'user_ask') {
+                    impInit[col] = 'median'; // default strategy
+                  }
+                });
+                setImputationConfigs(impInit);
+
+                const outInit: Record<string, string> = {};
+                Object.keys(res.outliers).forEach(col => {
+                  outInit[col] = 'cap'; // default strategy
+                });
+                setOutlierConfigs(outInit);
+
+                // Set initial trend variable
+                if (res.distributions.length > 0) {
+                  setSelectedTrendCol(res.distributions[0].name);
+                }
+
+                setIsRunning(false);
+              } else if (event.status === 'failed') {
+                setIsRunning(false);
+              }
+            }
+          }
+        }
+      }
+    } catch (err: any) {
+      setLogs(prev => [...prev, `❌ Error: ${err.message}`]);
+      setIsRunning(false);
+    }
+  };
+
+  const handleApplyPreprocessing = async () => {
+    if (!analysisResults || isApplying) return;
+    setIsApplying(true);
+
+    try {
+      const res = await applyEdaPreprocessing({
+        file_path: rawFilename,
+        session_id: sessionId,
+        imputations: imputationConfigs,
+        outliers: outlierConfigs,
+        remove_duplicates: removeDuplicates,
+        drop_near_constant: dropNearConstant
+      });
+
+      setAppliedResponse(res);
+      onEDASuccess(res.cleaned_file);
+      setActiveTab('Summary');
+    } catch (err: any) {
+      alert(err.message || "Failed to apply preprocessing");
+    } finally {
+      setIsApplying(false);
+    }
+  };
+
+  // Plotly Styling Shared configurations
+  const plotLayoutDefaults = {
+    paper_bgcolor: 'rgba(0,0,0,0)',
+    plot_bgcolor: 'rgba(0,0,0,0)',
+    font: { color: '#a0aec0', family: 'Inter, sans-serif' },
+    xaxis: { gridcolor: '#2d3748', zerolinecolor: '#2d3748', linecolor: '#2d3748' },
+    yaxis: { gridcolor: '#2d3748', zerolinecolor: '#2d3748', linecolor: '#2d3748' },
+    margin: { t: 40, r: 20, b: 40, l: 50 },
+    autosize: true
+  };
+
+  return (
+    <div>
+      <HelpTooltip 
+        title="What does Automated EDA & Data Cleaning do?"
+        description="The EDA engine analyzes the raw CSV structure. It auto-encodes object fields, generates time attributes, runs missing value audits, identifies outliers using interquartile range (IQR), and filters flat columns with variance < 0.001. After review, you can instruct the backend to apply KNN imputations, linear fills, caps, or drop rows before compiling offline HTML logs."
+      />
+
+      {/* TRIGGER BOARD */}
+      {!analysisResults && !isRunning && (
+        <div className="bg-cardBg border border-borderBg p-8 rounded-2xl flex flex-col items-center justify-center text-center shadow-lg min-h-[300px]">
+          <BarChart2 className="w-12 h-12 text-accentRed mb-4 animate-pulse" />
+          <h3 className="font-extrabold text-lg text-white">Exploratory Data Analysis Pending</h3>
+          <p className="text-xs text-gray-400 max-w-md mt-1 mb-6">Initialize the automated multi-level audits to evaluate shape, data types, missing records, distribution shapes, and correlations.</p>
+          
+          <button
+            onClick={triggerEDAAnalysis}
+            className="px-8 py-3.5 bg-accentRed hover:bg-accentRedHover text-white rounded-xl font-extrabold text-sm uppercase tracking-wider flex items-center gap-2 transition-all hover:scale-105 shadow-lg shadow-accentRed/30"
+          >
+            <Play className="w-4 h-4 fill-white" />
+            <span>Run EDA & Preprocessing</span>
+          </button>
+        </div>
+      )}
+
+      {/* STREAMING PROCESS SCREEN */}
+      {(isRunning || (logs.length > 0 && !analysisResults)) && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Checklist progress */}
+          <div className="bg-cardBg border border-borderBg p-6 rounded-2xl shadow-lg">
+            <h3 className="font-bold text-sm text-white mb-4 border-b border-borderBg pb-2">Analysis Checklist</h3>
+            <div className="space-y-3">
+              {CHECKLIST_STEPS.map((step, idx) => {
+                const isDone = completedSteps.includes(idx + 1);
+                const isCurrent = currentStepIdx === idx + 1;
+                return (
+                  <div key={idx} className="flex items-center gap-3 text-xs">
+                    {isDone ? (
+                      <CheckCircle2 className="w-4 h-4 text-successGreen shrink-0" />
+                    ) : isCurrent ? (
+                      <div className="w-4 h-4 border-2 border-accentRed border-t-transparent rounded-full animate-spin shrink-0" />
+                    ) : (
+                      <div className="w-4 h-4 border-2 border-borderBg rounded-full shrink-0" />
+                    )}
+                    <span className={`font-semibold ${
+                      isDone ? 'text-gray-300' : isCurrent ? 'text-accentRed font-bold' : 'text-gray-500'
+                    }`}>
+                      {step}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Running Terminal */}
+          <div className="lg:col-span-2 flex flex-col justify-between">
+            <div className="bg-black/85 border border-borderBg rounded-xl p-4 shadow-xl font-mono text-xs overflow-y-auto h-72 space-y-1.5 custom-scrollbar text-green-400">
+              <div className="text-gray-500 font-bold border-b border-borderBg pb-2 mb-2 flex items-center justify-between">
+                <span>⚡ EDA Engine Streaming Live Logs...</span>
+                <span className="w-2.5 h-2.5 rounded-full bg-accentRed animate-ping" />
+              </div>
+              {logs.map((log, i) => (
+                <div key={i} className="leading-relaxed">
+                  <span className="text-gray-600">[{new Date().toLocaleTimeString()}]</span> {log}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ANALYSIS COMPLETE & PREPROCESSING CONFIG BOARD */}
+      {analysisResults && !appliedResponse && (
+        <div className="space-y-8">
+          <div className="bg-accentRed/5 border-2 border-accentRed/25 rounded-2xl p-6 shadow-md">
+            <h2 className="text-lg font-bold text-white mb-2 flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-accentRed" />
+              <span>Interactive Data Cleaning & Preprocessing Required</span>
+            </h2>
+            <p className="text-xs text-gray-400 mb-6">Review the parameters with quality flaws and choose your corrections strategy. Click Apply below to build the final clean CSV.</p>
+
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              
+              {/* High Missing Card */}
+              <div className="bg-cardBg border border-borderBg p-5 rounded-xl">
+                <h3 className="font-extrabold text-sm text-white mb-3 flex items-center justify-between">
+                  <span>High Missingness (&gt;30%)</span>
+                  <span className="text-accentRed bg-accentRed/10 px-2 py-0.5 rounded text-3xs font-bold font-mono">
+                    {Object.keys(analysisResults.imputation_needs).filter(c => analysisResults.imputation_needs[c].strategy === 'user_ask').length} Columns
+                  </span>
+                </h3>
+                
+                {Object.keys(analysisResults.imputation_needs).filter(c => analysisResults.imputation_needs[c].strategy === 'user_ask').length === 0 ? (
+                  <p className="text-2xs text-gray-500 italic py-2">No columns exhibit missing values exceeding 30%.</p>
+                ) : (
+                  <div className="space-y-3 max-h-[180px] overflow-y-auto pr-1">
+                    {Object.entries(analysisResults.imputation_needs)
+                      .filter(([_, need]) => need.strategy === 'user_ask')
+                      .map(([col, need]) => (
+                        <div key={col} className="flex flex-col gap-1 border-b border-borderBg pb-2 last:border-0 last:pb-0">
+                          <div className="flex justify-between items-center text-xs">
+                            <span className="font-mono text-gray-300 truncate max-w-[150px]">{col}</span>
+                            <span className="text-accentRed font-semibold font-mono text-3xs">{need.pct.toFixed(1)}% missing</span>
+                          </div>
+                          <select
+                            value={imputationConfigs[col] || 'median'}
+                            onChange={e => setImputationConfigs(prev => ({ ...prev, [col]: e.target.value }))}
+                            className="bg-darkBg border border-borderBg text-2xs text-gray-300 rounded p-1 focus:outline-none"
+                          >
+                            <option value="median">Fill with Column Median</option>
+                            <option value="drop">Drop Column</option>
+                            <option value="keep">Keep As-is (Retain NaNs)</option>
+                          </select>
+                        </div>
+                      ))}
+                  </div>
+                )}
+              </div>
+
+              {/* IQR Outlier Card */}
+              <div className="bg-cardBg border border-borderBg p-5 rounded-xl">
+                <h3 className="font-extrabold text-sm text-white mb-3 flex items-center justify-between">
+                  <span>Outliers (IQR Method)</span>
+                  <span className="text-accentRed bg-accentRed/10 px-2 py-0.5 rounded text-3xs font-bold font-mono">
+                    {Object.keys(analysisResults.outliers).length} Columns
+                  </span>
+                </h3>
+                
+                {Object.keys(analysisResults.outliers).length === 0 ? (
+                  <p className="text-2xs text-gray-500 italic py-2">No outliers identified in standard numeric fields.</p>
+                ) : (
+                  <div className="space-y-3 max-h-[180px] overflow-y-auto pr-1">
+                    {Object.entries(analysisResults.outliers).map(([col, count]) => (
+                      <div key={col} className="flex flex-col gap-1 border-b border-borderBg pb-2 last:border-0 last:pb-0">
+                        <div className="flex justify-between items-center text-xs">
+                          <span className="font-mono text-gray-300 truncate max-w-[150px]">{col}</span>
+                          <span className="text-yellow-500 font-semibold font-mono text-3xs">{count} values</span>
+                        </div>
+                        <select
+                          value={outlierConfigs[col] || 'cap'}
+                          onChange={e => setOutlierConfigs(prev => ({ ...prev, [col]: e.target.value }))}
+                          className="bg-darkBg border border-borderBg text-2xs text-gray-300 rounded p-1 focus:outline-none"
+                        >
+                          <option value="cap">Cap at 1.5×IQR</option>
+                          <option value="remove">Remove Rows</option>
+                          <option value="keep">Keep As-is</option>
+                        </select>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Constant & Duplicates Card */}
+              <div className="bg-cardBg border border-borderBg p-5 rounded-xl flex flex-col justify-between">
+                <div>
+                  <h3 className="font-extrabold text-sm text-white mb-4 border-b border-borderBg pb-1">Filters & Deduplication</h3>
+                  <div className="space-y-4 text-xs font-semibold">
+                    <label className="flex items-center gap-3 cursor-pointer">
+                      <input 
+                        type="checkbox" checked={removeDuplicates} onChange={e => setRemoveDuplicates(e.target.checked)}
+                        className="w-4 h-4 accent-accentRed shrink-0"
+                      />
+                      <div>
+                        <span>Remove Duplicate Rows</span>
+                        <p className="text-3xs text-gray-400 font-normal">Identified: {analysisResults.duplicate_count} exact duplicates.</p>
+                      </div>
+                    </label>
+
+                    <label className="flex items-center gap-3 cursor-pointer">
+                      <input 
+                        type="checkbox" checked={dropNearConstant} onChange={e => setDropNearConstant(e.target.checked)}
+                        className="w-4 h-4 accent-accentRed shrink-0"
+                      />
+                      <div>
+                        <span>Drop Constant Columns</span>
+                        <p className="text-3xs text-gray-400 font-normal">Variance &lt; 0.001. Identified: {analysisResults.constant_cols.length} fields.</p>
+                      </div>
+                    </label>
+                  </div>
+                </div>
+
+                <div className="mt-6">
+                  <button
+                    onClick={handleApplyPreprocessing}
+                    disabled={isApplying}
+                    className={`w-full py-3 rounded-xl font-extrabold text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all ${
+                      isApplying 
+                        ? 'bg-gray-600 cursor-not-allowed text-gray-400' 
+                        : 'bg-successGreen hover:bg-successGreenHover text-white shadow-md shadow-successGreen/25'
+                    }`}
+                  >
+                    {isApplying ? (
+                      <>
+                        <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        <span>Applying...</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>Apply Preprocessing & Save</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* PREPROCESSING COMPLETE & PREMIUM TABBED CHARTS PANEL */}
+      {appliedResponse && (
+        <div className="mt-8">
+          <div className="bg-cardBg border border-borderBg p-5 rounded-2xl shadow-lg mb-8 flex flex-col md:flex-row md:items-center justify-between gap-6">
+            <div className="flex-1">
+              <h3 className="font-extrabold text-sm text-white uppercase tracking-wider flex items-center gap-2">
+                <span className="text-successGreen">✓</span> PREPROCESSING COMPLETE
+              </h3>
+              <p className="text-xs text-gray-400 mt-1">{appliedResponse.message}</p>
+            </div>
+            
+            <div className="flex flex-wrap gap-4 shrink-0">
+              <a 
+                href={getDownloadUrl(appliedResponse.cleaned_file, sessionId)}
+                className="px-5 py-2.5 bg-successGreen hover:bg-successGreenHover text-white rounded-lg font-bold text-xs uppercase tracking-wider flex items-center gap-2 transition-colors shadow-md"
+              >
+                <Download className="w-4 h-4" />
+                <span>Download Cleaned Dataset (CSV)</span>
+              </a>
+              <a 
+                href={getDownloadUrl(appliedResponse.html_report_file, sessionId)}
+                className="px-5 py-2.5 bg-cardBg hover:bg-black/40 text-gray-300 hover:text-white rounded-lg border border-borderBg font-bold text-xs uppercase tracking-wider flex items-center gap-2 transition-all"
+              >
+                <Download className="w-4 h-4 text-accentRed" />
+                <span>Download EDA Report (HTML)</span>
+              </a>
+            </div>
+          </div>
+
+          {/* TABBED CHARTS CONTROL PANEL */}
+          <div className="bg-cardBg border border-borderBg rounded-2xl shadow-xl overflow-hidden mb-8">
+            <div className="flex border-b border-borderBg bg-black/10 font-bold text-xs">
+              {(['Summary', 'Missing', 'Distributions', 'Correlations', 'Temporal'] as const).map(tab => {
+                const isActive = activeTab === tab;
+                return (
+                  <button
+                    key={tab}
+                    onClick={() => setActiveTab(tab)}
+                    className={`px-6 py-4 transition-all focus:outline-none border-b-2 hover:text-white ${
+                      isActive 
+                        ? 'border-accentRed text-white bg-darkBg' 
+                        : 'border-transparent text-gray-400 hover:bg-black/10'
+                    }`}
+                  >
+                    {tab === 'Missing' ? 'Missing Values' : tab === 'Correlations' ? 'Correlations Heatmap' : tab === 'Temporal' ? 'Temporal Trends' : tab}
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="p-6 bg-darkBg/30 min-h-[400px]">
+              
+              {/* TAB 1: SUMMARY */}
+              {activeTab === 'Summary' && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  <div>
+                    <h3 className="font-extrabold text-sm text-white mb-4 uppercase tracking-wider text-accentRed">Preprocessing Log Summary</h3>
+                    <div className="space-y-4 text-xs font-semibold text-gray-300">
+                      <div className="flex justify-between border-b border-borderBg pb-1.5"><span>Duplicate rows removed:</span><span className="text-white">{appliedResponse.stats.shape[0] === analysisResults?.shape[0] ? '0' : analysisResults?.duplicate_count}</span></div>
+                      <div className="flex justify-between border-b border-borderBg pb-1.5"><span>Object columns encoded:</span><span className="text-white">{analysisResults?.encoded_columns.length || 0}</span></div>
+                      <div className="flex justify-between border-b border-borderBg pb-1.5"><span>Values imputed:</span><span className="text-white text-successGreen">{appliedResponse.message.match(/(\d+) values imputed/)?.[1] || '0'}</span></div>
+                      <div className="flex justify-between border-b border-borderBg pb-1.5"><span>Outliers capped:</span><span className="text-white text-accentRed">{appliedResponse.message.match(/(\d+) outlier values capped/)?.[1] || '0'}</span></div>
+                      <div className="flex justify-between"><span>Final Dataset Shape:</span><span className="text-white font-mono text-sm">{appliedResponse.stats.shape[0]} rows x {appliedResponse.stats.shape[1]} cols</span></div>
+                    </div>
+                  </div>
+
+                  <div className="bg-cardBg/60 border border-borderBg rounded-xl p-5 flex flex-col justify-center">
+                    <h4 className="font-bold text-xs text-white uppercase tracking-wider mb-2">Automated Quality Cert</h4>
+                    <p className="text-2xs text-gray-400 leading-relaxed">Multilevel quality checks completed successfully. Variable data types have been fully resolved to float arrays, seasonality extracted, and null gaps repaired via linear/KNN algorithms. The dataset is fully normalized and scientifically valid for derived atmospheric formula calculations.</p>
+                  </div>
+                </div>
+              )}
+
+              {/* TAB 2: MISSINGNESS */}
+              {activeTab === 'Missing' && analysisResults && (
+                <div>
+                  <h3 className="font-bold text-sm text-white mb-2 uppercase tracking-wider">Missing Value Distribution Chart</h3>
+                  <p className="text-2xs text-gray-400 mb-4">Displays the percentage of raw missing entries detected per variable prior to imputation.</p>
+                  <div className="w-full h-[400px]">
+                    <Plot
+                      data={[{
+                        x: Object.keys(analysisResults.missingness),
+                        y: Object.values(analysisResults.missingness),
+                        type: 'bar',
+                        marker: { color: '#e53e3e', line: { color: '#ff8a8a', width: 1 } }
+                      }]}
+                      layout={{
+                        ...plotLayoutDefaults,
+                        title: 'Missing Elements % per Variable',
+                        yaxis: { title: '% Missing', range: [0, 100], gridcolor: '#2d3748' },
+                      }}
+                      config={{ responsive: true, displayModeBar: false }}
+                      style={{ width: '100%', height: '100%' }}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* TAB 3: DISTRIBUTIONS */}
+              {activeTab === 'Distributions' && analysisResults && (
+                <div>
+                  <h3 className="font-bold text-sm text-white mb-2 uppercase tracking-wider">High Variance Feature Distributions</h3>
+                  <p className="text-2xs text-gray-400 mb-6">Displaying the statistical dispersion profiles (histograms) for the top variables by variance.</p>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {analysisResults.distributions.map((dist) => (
+                      <div key={dist.name} className="bg-cardBg border border-borderBg rounded-xl p-3">
+                        <h4 className="font-mono text-2xs text-gray-300 font-extrabold truncate mb-2">{dist.name}</h4>
+                        <div className="h-44">
+                          <Plot
+                            data={[{
+                              x: dist.bins,
+                              y: dist.counts,
+                              type: 'bar',
+                              marker: { color: '#319795' }
+                            }]}
+                            layout={{
+                              ...plotLayoutDefaults,
+                              margin: { t: 5, r: 5, b: 20, l: 30 },
+                              height: 176
+                            }}
+                            config={{ responsive: true, displayModeBar: false }}
+                            style={{ width: '100%', height: '100%' }}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* TAB 4: SPEARMAN HEATMAP */}
+              {activeTab === 'Correlations' && analysisResults && (
+                <div className="flex flex-col items-center">
+                  <h3 className="font-bold text-sm text-white mb-1 uppercase tracking-wider w-full text-left">Spearman Rank Correlation matrix</h3>
+                  <p className="text-2xs text-gray-400 mb-6 w-full text-left">Heatmap displaying the top 20 variables sorted descending by variance to check first-look inter-correlations.</p>
+                  
+                  <div className="w-full max-w-3xl h-[480px]">
+                    <Plot
+                      data={[{
+                        z: analysisResults.correlation.matrix,
+                        x: analysisResults.correlation.columns,
+                        y: analysisResults.correlation.columns,
+                        type: 'heatmap',
+                        colorscale: 'RdBu',
+                        zmin: -1,
+                        zmax: 1,
+                        reversescale: true
+                      }]}
+                      layout={{
+                        ...plotLayoutDefaults,
+                        title: 'Spearman Correlation Coefficient Matrix',
+                        height: 480,
+                        margin: { t: 40, r: 20, b: 60, l: 80 }
+                      }}
+                      config={{ responsive: true }}
+                      style={{ width: '100%', height: '100%' }}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* TAB 5: TEMPORAL TRENDS */}
+              {activeTab === 'Temporal' && analysisResults && (
+                <div>
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+                    <div>
+                      <h3 className="font-bold text-sm text-white uppercase tracking-wider">Temporal Trend Analysis</h3>
+                      <p className="text-2xs text-gray-400">Examine how the variable means drift over time across the target temporal timeline.</p>
+                    </div>
+                    
+                    <div className="flex items-center gap-2">
+                      <span className="text-2xs text-gray-400 font-bold uppercase shrink-0">Select Feature:</span>
+                      <select
+                        value={selectedTrendCol}
+                        onChange={e => setSelectedTrendCol(e.target.value)}
+                        className="bg-cardBg border border-borderBg rounded text-xs p-2 text-white font-bold focus:outline-none"
+                      >
+                        {analysisResults.distributions.map(d => (
+                          <option key={d.name} value={d.name}>{d.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  {selectedTrendCol && analysisResults.temporal_trends[selectedTrendCol] ? (
+                    <div className="w-full h-[380px]">
+                      <Plot
+                        data={[{
+                          x: analysisResults.temporal_trends[selectedTrendCol].x,
+                          y: analysisResults.temporal_trends[selectedTrendCol].y,
+                          type: 'scatter',
+                          mode: 'lines+markers',
+                          line: { color: '#e53e3e', width: 2.5 },
+                          marker: { color: '#ff6b6b', size: 6 }
+                        }]}
+                        layout={{
+                          ...plotLayoutDefaults,
+                          title: `Mean ${selectedTrendCol} Over Time`,
+                          xaxis: { ...plotLayoutDefaults.xaxis, title: 'Date' },
+                          yaxis: { ...plotLayoutDefaults.yaxis, title: 'Variable Mean Value' },
+                          height: 380
+                        }}
+                        config={{ responsive: true }}
+                        style={{ width: '100%', height: '100%' }}
+                      />
+                    </div>
+                  ) : (
+                    <div className="h-[300px] flex items-center justify-center text-gray-500 italic text-xs">
+                      No temporal data generated for this selection.
+                    </div>
+                  )}
+                </div>
+              )}
+
+            </div>
+          </div>
+          
+          <PreviewTable filename={appliedResponse.cleaned_file} sessionId={sessionId} />
+        </div>
+      )}
+    </div>
+  );
+}

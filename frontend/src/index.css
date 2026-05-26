@@ -1,0 +1,68 @@
+@import "tailwindcss";
+
+@theme {
+  --color-darkBg: #0f1117;
+  --color-cardBg: #1a1d27;
+  --color-borderBg: #2d3748;
+  --color-accentRed: #e53e3e;
+  --color-accentRedHover: #c53030;
+  --color-successGreen: #38a169;
+  --color-successGreenHover: #2f855a;
+}
+
+/* Base Body Styles */
+html, body {
+  background-color: #0f1117;
+  color: #f7fafc;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  overflow-x: hidden;
+}
+
+/* Webkit Scrollbars Custom Utility */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.2);
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #2d3748;
+  border-radius: 3px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #e53e3e;
+}
+
+/* Glassmorphism Card and Interactive Panels */
+.glass-panel {
+  background: rgba(26, 29, 39, 0.85);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(45, 55, 72, 0.5);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+}
+
+.glow-card-red:hover {
+  box-shadow: 0 0 15px rgba(229, 62, 62, 0.25);
+  border-color: rgba(229, 62, 62, 0.4);
+}
+
+.glow-card-green:hover {
+  box-shadow: 0 0 15px rgba(56, 161, 105, 0.25);
+  border-color: rgba(56, 161, 105, 0.4);
+}
+
+/* Pulsing Ingestion Animation */
+@keyframes pulse-border {
+  0%, 100% { border-color: rgba(229, 62, 62, 0.3); }
+  50% { border-color: rgba(229, 62, 62, 0.8); }
+}
+
+.pulse-border-red {
+  animation: pulse-border 2s infinite;
+}
+
+/* Custom Stepper transition */
+.step-transition {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
