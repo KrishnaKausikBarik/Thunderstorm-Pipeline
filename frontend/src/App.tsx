@@ -145,11 +145,11 @@ export default function App() {
       />
 
       {/* Top Header */}
-      <header className="border-b border-borderBg bg-cardBg/90 backdrop-blur sticky top-0 z-40 px-4 sm:px-6 lg:px-8 py-4 flex flex-col lg:flex-row lg:justify-between lg:items-center gap-4 shadow-md">
+      <header className="border-b border-borderBg bg-cardBg/90 backdrop-blur sticky top-0 z-40 px-3 sm:px-6 lg:px-8 py-3 sm:py-4 flex flex-col lg:flex-row lg:justify-between lg:items-center gap-4 shadow-md">
         <div className="flex items-center gap-3 w-full lg:w-auto min-w-0">
-          <CloudLightning className="w-6 h-6 text-accentRed animate-pulse" />
+          <CloudLightning className="w-5 h-5 sm:w-6 sm:h-6 text-accentRed animate-pulse shrink-0" />
           <div className="min-w-0">
-            <h1 className="text-xs sm:text-sm font-extrabold text-white tracking-widest uppercase flex flex-wrap items-center gap-2">
+            <h1 className="text-[11px] sm:text-sm font-extrabold text-white tracking-wider sm:tracking-widest uppercase flex flex-wrap items-center gap-2 leading-snug">
               <span>Meteorological Ingestion & Pipeline</span>
               <span className="bg-accentRed/10 border border-accentRed/30 px-1.5 py-0.5 rounded text-4xs font-bold text-accentRed tracking-normal">V1.0</span>
             </h1>
@@ -170,10 +170,10 @@ export default function App() {
             </div>
           </div>
           
-          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+          <div className="grid grid-cols-2 sm:flex sm:flex-wrap sm:items-center gap-2 sm:gap-3">
           <button
             onClick={() => setShowClaudeSettings(true)}
-            className="px-3 py-1.5 border border-indigo-400/30 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 hover:text-white rounded font-bold text-3xs uppercase tracking-wider transition-all flex items-center gap-1.5"
+            className="justify-center px-3 py-2 sm:py-1.5 border border-indigo-400/30 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 hover:text-white rounded font-bold text-3xs uppercase tracking-wider transition-all flex items-center gap-1.5"
           >
             <KeyRound className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">Claude API</span>
@@ -181,7 +181,7 @@ export default function App() {
 
           <button 
             onClick={handleResetSession}
-            className="px-3 py-1.5 border border-borderBg hover:bg-black/20 text-gray-400 hover:text-white rounded font-bold text-3xs uppercase tracking-wider transition-all"
+            className="px-3 py-2 sm:py-1.5 border border-borderBg hover:bg-black/20 text-gray-400 hover:text-white rounded font-bold text-3xs uppercase tracking-wider transition-all"
           >
             Reset Session
           </button>
@@ -190,7 +190,7 @@ export default function App() {
       </header>
 
       {/* MAIN CONTAINER */}
-      <main className="max-w-7xl mx-auto w-full px-3 py-4 sm:px-5 sm:py-6 lg:p-8 flex-1 flex flex-col justify-start">
+      <main className="max-w-7xl mx-auto w-full px-2.5 py-3 sm:px-5 sm:py-6 lg:p-8 flex-1 flex flex-col justify-start">
         
         {/* Horizontal stepper (always visible) */}
         <Stepper 
@@ -200,7 +200,7 @@ export default function App() {
         />
 
         {/* Step contents render */}
-        <div className="bg-cardBg/35 border border-borderBg/50 rounded-2xl lg:rounded-3xl p-3 sm:p-5 lg:p-8 shadow-xl flex-1 backdrop-blur-md min-w-0">
+        <div className="bg-cardBg/35 border border-borderBg/50 rounded-xl sm:rounded-2xl lg:rounded-3xl p-2.5 sm:p-5 lg:p-8 shadow-xl flex-1 backdrop-blur-md min-w-0">
           {currentStep === 1 && (
             <IngestionStep 
               sessionId={sessionId} 
@@ -236,7 +236,7 @@ export default function App() {
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-borderBg bg-cardBg/20 py-4 text-center text-4xs font-bold text-gray-500 uppercase tracking-widest mt-12">
+      <footer className="border-t border-borderBg bg-cardBg/20 px-4 py-4 text-center text-4xs font-bold text-gray-500 uppercase tracking-wider sm:tracking-widest mt-8 sm:mt-12">
         <span>⛈️ Thunderstorm Data Processing & Preprocessing Platform &copy; 2026</span>
       </footer>
 

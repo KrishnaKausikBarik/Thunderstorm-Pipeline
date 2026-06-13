@@ -18,6 +18,11 @@ html, body {
   overflow-x: hidden;
 }
 
+#root {
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
 /* Webkit Scrollbars Custom Utility */
 .custom-scrollbar::-webkit-scrollbar {
   width: 6px;
@@ -77,6 +82,12 @@ a {
   text-wrap: balance;
 }
 
+input,
+select,
+textarea {
+  max-width: 100%;
+}
+
 table {
   width: max-content;
   min-width: 100%;
@@ -89,8 +100,35 @@ table {
 }
 
 @media (max-width: 640px) {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
   body {
     font-size: 14px;
+  }
+
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+
+  table {
+    min-width: 680px;
+  }
+
+  th,
+  td {
+    padding-left: 0.75rem !important;
+    padding-right: 0.75rem !important;
+  }
+
+  .js-plotly-plot,
+  .plot-container,
+  .svg-container,
+  .main-svg {
+    width: 100% !important;
   }
 
   .js-plotly-plot .modebar {
