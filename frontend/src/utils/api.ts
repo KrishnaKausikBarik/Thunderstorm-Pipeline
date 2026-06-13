@@ -1,13 +1,8 @@
 import type { DimFinalizeResponse } from '../types';
 
-const trimTrailingSlash = (value: string) => value.replace(/\/+$/, "");
-
-const configuredApiUrl = import.meta.env.VITE_API_URL as string | undefined;
-const backendBase = trimTrailingSlash(
-  import.meta.env.DEV ? configuredApiUrl || "http://localhost:8000" : "/_/backend"
-);
-
-export const API_BASE = backendBase.endsWith("/api") ? backendBase : `${backendBase}/api`;
+export const API_BASE = import.meta.env.DEV
+  ? "http://localhost:8000/api"
+  : "https://thunderstorm-pipeline.onrender.com/api";
 
 export interface ClaudeConfigStatus {
   configured: boolean;

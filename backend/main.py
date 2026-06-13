@@ -40,10 +40,14 @@ async def normalize_vercel_backend_prefix(request: Request, call_next):
         request.scope["path"] = request.scope["path"][len(VERCEL_BACKEND_PREFIX):]
     return await call_next(request)
 
-# Enable CORS for frontend on port 3000
+# Enable CORS for deployed frontend and local dev servers
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "https://thunderstorm-pipeline.vercel.app",
+        "http://localhost:5173",
+        "http://localhost:3000",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
