@@ -189,6 +189,9 @@ export default function EDAStep({ sessionId, rawFilename, onEDASuccess }: EDASte
     autosize: true
   };
 
+  const samplingReport = analysisResults?.sampling_report ?? null;
+  const samplingSources = samplingReport?.report.sources ?? {};
+
   return (
     <div>
       <HelpTooltip 
@@ -616,7 +619,7 @@ export default function EDAStep({ sessionId, rawFilename, onEDASuccess }: EDASte
               )}
 
               {/* TAB 6: SAMPLING ANALYSIS */}
-              {activeTab === 'Sampling' && analysisResults && analysisResults.sampling_report && (
+              {activeTab === 'Sampling' && samplingReport && (
                 <div className="space-y-6">
                   <h3 className="font-bold text-sm text-white uppercase tracking-wider">Spatial-Temporal Sampling & Grid Audit</h3>
                   <p className="text-2xs text-gray-400 mb-4">Detailed audit of observation intervals, coordinate duplicates, and temporal gaps derived from raw ingestion logs.</p>
@@ -634,8 +637,8 @@ export default function EDAStep({ sessionId, rawFilename, onEDASuccess }: EDASte
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-borderBg text-gray-300">
-                        {Object.keys(analysisResults.sampling_report.report.sources).map(srcKey => {
-                          const sdata = analysisResults.sampling_report.report.sources[srcKey];
+                        {Object.keys(samplingSources).map(srcKey => {
+                          const sdata = samplingSources[srcKey];
                           const hasIrregular = sdata.irregular_gaps_pct > 10;
                           const hasMissing = sdata.missing_timestamps_count > 0;
                           return (
@@ -658,12 +661,12 @@ export default function EDAStep({ sessionId, rawFilename, onEDASuccess }: EDASte
                   </div>
 
                   <div className="text-xs text-gray-400 font-semibold mb-4 bg-black/20 p-3 rounded-lg border border-borderBg/50">
-                    Recommended merge interval: <span className="text-accentRed font-bold">{analysisResults.sampling_report.report.recommended_common_interval}</span>.
+                    Recommended merge interval: <span className="text-accentRed font-bold">{samplingReport.report.recommended_common_interval}</span>.
                   </div>
 
                   {/* Quality Alerts */}
-                  {Object.keys(analysisResults.sampling_report.report.sources).map(srcKey => {
-                    const sdata = analysisResults.sampling_report.report.sources[srcKey];
+                  {Object.keys(samplingSources).map(srcKey => {
+                    const sdata = samplingSources[srcKey];
                     if (sdata.irregular_gaps_pct > 10.0 || sdata.missing_timestamps_pct > 5.0) {
                       return (
                         <div key={srcKey} className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 flex items-start gap-3 mt-3">
@@ -688,8 +691,8 @@ export default function EDAStep({ sessionId, rawFilename, onEDASuccess }: EDASte
                       <p className="text-3xs text-gray-400 mb-4">Observation intervals in hours plotted across sources.</p>
                       <div className="h-[300px]">
                         <Plot
-                          data={Object.keys(analysisResults.sampling_report.report.sources).map(srcKey => {
-                            const sdata = analysisResults.sampling_report.report.sources[srcKey];
+                          data={Object.keys(samplingSources).map(srcKey => {
+                            const sdata = samplingSources[srcKey];
                             const baseDelta = sdata.median_interval_seconds;
                             const fakeDeltas = [];
                             for (let i = 0; i < 200; i++) {
@@ -726,13 +729,13 @@ export default function EDAStep({ sessionId, rawFilename, onEDASuccess }: EDASte
                         <Plot
                           data={(() => {
                             const allVars: string[] = [];
-                            Object.keys(analysisResults.sampling_report.report.sources).forEach(srcKey => {
-                              allVars.push(...analysisResults.sampling_report.report.sources[srcKey].variables);
+                            Object.keys(samplingSources).forEach(srcKey => {
+                              allVars.push(...samplingSources[srcKey].variables);
                             });
                             
                             const heatmapMonths = ['2026-03', '2026-04', '2026-05'];
                             const zMatrix = allVars.map(v => {
-                              return heatmapMonths.map(m => {
+                              return heatmapMonths.map(_month => {
                                 if (v === 'total_column_water_vapour') {
                                   return 65 + Math.random() * 5;
                                 } else if (v === 'convective_available_potential_energy') {

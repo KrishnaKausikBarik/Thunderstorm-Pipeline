@@ -28,6 +28,27 @@ export interface TemporalTrendItem {
   y: (number | null)[];
 }
 
+export interface SamplingSourceReport {
+  source_name: string;
+  variables: string[];
+  detected_interval: string;
+  median_interval_seconds: number;
+  min_interval_seconds: number;
+  max_interval_seconds: number;
+  irregular_gaps_pct: number;
+  missing_timestamps_count: number;
+  missing_timestamps_pct: number;
+  duplicate_timestamps_count: number;
+}
+
+export interface SamplingReport {
+  report: {
+    recommended_common_interval: string;
+    sources: Record<string, SamplingSourceReport>;
+  };
+  stats?: Record<string, unknown>;
+}
+
 export interface EDAResults {
   shape: [number, number];
   dtypes: Record<string, string>;
@@ -42,6 +63,7 @@ export interface EDAResults {
   correlation: CorrelationData;
   temporal_trends: Record<string, TemporalTrendItem>;
   temp_analyzed_file: string;
+  sampling_report: SamplingReport | null;
 }
 
 export interface FormulaCatalogItem {

@@ -31,6 +31,15 @@ from ingestion.smart_merge import smart_merge_dataframes
 
 app = FastAPI(title="Meteorological Pipeline API")
 
+VERCEL_BACKEND_PREFIX = "/_/backend"
+
+
+@app.middleware("http")
+async def normalize_vercel_backend_prefix(request: Request, call_next):
+    if request.scope["path"].startswith(f"{VERCEL_BACKEND_PREFIX}/"):
+        request.scope["path"] = request.scope["path"][len(VERCEL_BACKEND_PREFIX):]
+    return await call_next(request)
+
 # Enable CORS for frontend on port 3000
 app.add_middleware(
     CORSMiddleware,

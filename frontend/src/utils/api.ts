@@ -1,6 +1,13 @@
 import type { DimFinalizeResponse } from '../types';
 
-export const API_BASE = "http://localhost:8000/api";
+const trimTrailingSlash = (value: string) => value.replace(/\/+$/, "");
+
+const configuredApiUrl = import.meta.env.VITE_API_URL as string | undefined;
+const backendBase = trimTrailingSlash(
+  import.meta.env.DEV ? configuredApiUrl || "http://localhost:8000" : "/_/backend"
+);
+
+export const API_BASE = backendBase.endsWith("/api") ? backendBase : `${backendBase}/api`;
 
 export interface ClaudeConfigStatus {
   configured: boolean;
