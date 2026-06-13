@@ -4,7 +4,8 @@ import IngestionStep from './components/IngestionStep';
 import EDAStep from './components/EDAStep';
 import DerivedStep from './components/DerivedStep';
 import DimReductionStep from './components/DimReductionStep';
-import { CloudLightning, Satellite, Database } from 'lucide-react';
+import ClaudeApiSettings from './components/ClaudeApiSettings';
+import { CloudLightning, Satellite, Database, KeyRound } from 'lucide-react';
 
 export default function App() {
   // Session management
@@ -19,6 +20,7 @@ export default function App() {
 
   // Toast notification state
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'info' | 'error' } | null>(null);
+  const [showClaudeSettings, setShowClaudeSettings] = useState(false);
 
   // Initialize session from localStorage
   useEffect(() => {
@@ -137,6 +139,11 @@ export default function App() {
         </div>
       )}
 
+      <ClaudeApiSettings
+        open={showClaudeSettings}
+        onClose={() => setShowClaudeSettings(false)}
+      />
+
       {/* Top Header */}
       <header className="border-b border-borderBg bg-cardBg/90 backdrop-blur sticky top-0 z-40 px-8 py-4 flex justify-between items-center shadow-md">
         <div className="flex items-center gap-3">
@@ -163,6 +170,14 @@ export default function App() {
             </div>
           </div>
           
+          <button
+            onClick={() => setShowClaudeSettings(true)}
+            className="px-3 py-1.5 border border-indigo-400/30 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 hover:text-white rounded font-bold text-3xs uppercase tracking-wider transition-all flex items-center gap-1.5"
+          >
+            <KeyRound className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Claude API</span>
+          </button>
+
           <button 
             onClick={handleResetSession}
             className="px-3 py-1.5 border border-borderBg hover:bg-black/20 text-gray-400 hover:text-white rounded font-bold text-3xs uppercase tracking-wider transition-all"

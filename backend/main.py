@@ -5,8 +5,9 @@ import datetime
 from fastapi import FastAPI, HTTPException, Request, Query
 from fastapi.responses import StreamingResponse, FileResponse
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, SecretStr
 from typing import List, Dict, Any, Optional
+from weather_summary import WeatherSummaryError, generate_weather_summary
 
 import pandas as pd
 import numpy as np
@@ -81,6 +82,43 @@ class DimFinalizeConfig(BaseModel):
     session_id: str
     retained_features: List[str]
     dropped_features: List[str]
+
+class ClaudeSettingsConfig(BaseModel):
+    api_key: SecretStr
+    model: str = "claude-sonnet-4-6"
+
+# -----------------
+# SETTINGS ENDPOINTS
+# -----------------
+@app.get("/api/settings/claude")
+async def get_claude_settings():
+    return {
+        "configured": bool(os.getenv("ANTHROPIC_API_KEY")),
+        "model": os.getenv("ANTHROPIC_MODEL", "claude-sonnet-4-6"),
+    }
+
+@app.post("/api/settings/claude")
+async def update_claude_settings(config: ClaudeSettingsConfig):
+    api_key = config.api_key.get_secret_value().strip()
+    allowed_models = {
+        "claude-sonnet-4-6",
+        "claude-haiku-4-5",
+        "claude-opus-4-8",
+    }
+
+    if not api_key.startswith("sk-ant-") or len(api_key) < 30:
+        raise HTTPException(status_code=400, detail="Enter a valid Anthropic API key.")
+    if config.model not in allowed_models:
+        raise HTTPException(status_code=400, detail="Unsupported Claude model.")
+
+    os.environ["ANTHROPIC_API_KEY"] = api_key
+    os.environ["ANTHROPIC_MODEL"] = config.model
+    os.environ["SUMMARY_PROVIDER"] = "claude"
+
+    return {
+        "configured": True,
+        "model": config.model,
+    }
 
 # -----------------
 # INGEST ENDPOINTS
@@ -948,6 +986,13 @@ async def dim_finalize(config: DimFinalizeConfig):
         final_filename = f"final_dataset_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
         final_path = os.path.join(session_dir, final_filename)
         final_df.to_csv(final_path, index=False)
+
+        ai_summary = None
+        ai_summary_error = None
+        try:
+            ai_summary = await asyncio.to_thread(generate_weather_summary, final_df)
+        except WeatherSummaryError as exc:
+            ai_summary_error = str(exc)
         
         # Re-compute stats for HTML Report
         numeric_final = final_df.select_dtypes(include=[np.number]).columns
@@ -993,6 +1038,8 @@ async def dim_finalize(config: DimFinalizeConfig):
             "message": "Final dataset produced and saved! Multicollinearity threat cleared.",
             "final_file": final_filename,
             "html_report_file": html_report_filename,
+            "ai_summary": ai_summary,
+            "ai_summary_error": ai_summary_error,
             "stats": {
                 "shape": list(final_df.shape),
                 "total_rows": len(final_df),

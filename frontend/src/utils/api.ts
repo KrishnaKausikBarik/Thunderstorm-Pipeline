@@ -1,4 +1,35 @@
+import type { DimFinalizeResponse } from '../types';
+
 export const API_BASE = "http://localhost:8000/api";
+
+export interface ClaudeConfigStatus {
+  configured: boolean;
+  model: string;
+}
+
+export async function fetchClaudeConfig(): Promise<ClaudeConfigStatus> {
+  const response = await fetch(`${API_BASE}/settings/claude`);
+  if (!response.ok) {
+    throw new Error("Failed to load Claude API configuration");
+  }
+  return response.json();
+}
+
+export async function updateClaudeConfig(payload: {
+  api_key: string;
+  model: string;
+}): Promise<ClaudeConfigStatus> {
+  const response = await fetch(`${API_BASE}/settings/claude`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) {
+    const err = await response.json();
+    throw new Error(err.detail || "Failed to configure Claude API");
+  }
+  return response.json();
+}
 
 export const getDownloadUrl = (filename: string, sessionId: string) => {
   return `${API_BASE}/download/${filename}?session_id=${sessionId}`;
@@ -73,7 +104,7 @@ export async function finalizeDimensionality(payload: {
   session_id: string;
   retained_features: string[];
   dropped_features: string[];
-}) {
+}): Promise<DimFinalizeResponse> {
   const response = await fetch(`${API_BASE}/dimensionality/finalize`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },

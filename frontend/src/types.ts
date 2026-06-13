@@ -72,3 +72,26 @@ export interface DimAnalyzeResults {
   vif_results: VifResultItem[];
   important_features: string[];
 }
+
+export interface AIWeatherSummary {
+  provider?: 'Gemini' | 'Claude';
+  thunderstorm_probability: number;
+  risk_level: 'Very Low' | 'Low' | 'Moderate' | 'High' | 'Severe';
+  confidence: number;
+  summary: string;
+  impacts: string[];
+}
+
+export interface DimFinalizeResponse {
+  status: 'success';
+  message: string;
+  final_file: string;
+  html_report_file: string;
+  ai_summary: AIWeatherSummary | null;
+  ai_summary_error: string | null;
+  stats: {
+    shape: [number, number];
+    total_rows: number;
+    total_columns: number;
+  };
+}

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Download, Lock, CheckCircle, ArrowRight, ArrowLeft, AlertTriangle } from 'lucide-react';
+import { Download, Lock, CheckCircle, ArrowRight, ArrowLeft, AlertTriangle, CloudLightning } from 'lucide-react';
 import { analyzeDimensionality, finalizeDimensionality, getDownloadUrl } from '../utils/api';
 import Plotly from 'plotly.js-dist-min';
 import _createPlotlyComponent from 'react-plotly.js/factory';
@@ -24,12 +24,47 @@ try {
 
 import HelpTooltip from './HelpTooltip';
 import PreviewTable from './PreviewTable';
-import type { DimAnalyzeResults, VifResultItem, SpearmanPairItem } from '../types';
+import type { AIWeatherSummary, DimAnalyzeResults, DimFinalizeResponse, VifResultItem, SpearmanPairItem } from '../types';
 
 interface DimReductionStepProps {
   sessionId: string;
   derivedFilename: string;
   onFinalSuccess: () => void;
+}
+
+function getRiskTheme(riskLevel: AIWeatherSummary['risk_level']) {
+  switch (riskLevel) {
+    case 'Severe':
+      return {
+        badge: 'bg-red-500/15 border-red-500/40 text-red-300',
+        bar: 'bg-red-500',
+        value: 'text-red-300',
+      };
+    case 'High':
+      return {
+        badge: 'bg-orange-500/15 border-orange-500/40 text-orange-300',
+        bar: 'bg-orange-500',
+        value: 'text-orange-300',
+      };
+    case 'Moderate':
+      return {
+        badge: 'bg-yellow-500/15 border-yellow-500/40 text-yellow-300',
+        bar: 'bg-yellow-500',
+        value: 'text-yellow-300',
+      };
+    case 'Low':
+      return {
+        badge: 'bg-emerald-500/15 border-emerald-500/40 text-emerald-300',
+        bar: 'bg-emerald-500',
+        value: 'text-emerald-300',
+      };
+    default:
+      return {
+        badge: 'bg-sky-500/15 border-sky-500/40 text-sky-300',
+        bar: 'bg-sky-500',
+        value: 'text-sky-300',
+      };
+  }
 }
 
 export default function DimReductionStep({ sessionId, derivedFilename, onFinalSuccess }: DimReductionStepProps) {
@@ -52,7 +87,9 @@ export default function DimReductionStep({ sessionId, derivedFilename, onFinalSu
   const [pendingLockAction, setPendingLockAction] = useState<'drop' | 'retain' | null>(null);
 
   // Final success payload
-  const [finalizeResponse, setFinalizeResponse] = useState<any | null>(null);
+  const [finalizeResponse, setFinalizeResponse] = useState<DimFinalizeResponse | null>(null);
+  const [aiSummary, setAiSummary] = useState<AIWeatherSummary | null>(null);
+  const [aiSummaryError, setAiSummaryError] = useState<string | null>(null);
 
   // Load Initial Spearman Correlation
   useEffect(() => {
@@ -198,6 +235,8 @@ export default function DimReductionStep({ sessionId, derivedFilename, onFinalSu
     setLoading(true);
     setError(null);
     setFinalizeResponse(null);
+    setAiSummary(null);
+    setAiSummaryError(null);
 
     try {
       const res = await finalizeDimensionality({
@@ -209,6 +248,8 @@ export default function DimReductionStep({ sessionId, derivedFilename, onFinalSu
 
       if (res.status === 'success') {
         setFinalizeResponse(res);
+        setAiSummary(res.ai_summary ?? null);
+        setAiSummaryError(res.ai_summary_error ?? null);
         onFinalSuccess();
       } else {
         throw new Error(res.message || 'Finalization failed');
@@ -548,7 +589,7 @@ export default function DimReductionStep({ sessionId, derivedFilename, onFinalSu
                 {loading ? (
                   <>
                     <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    <span>Finalizing schema...</span>
+                    <span>Finalizing & Generating Summary...</span>
                   </>
                 ) : (
                   <>
@@ -592,6 +633,73 @@ export default function DimReductionStep({ sessionId, derivedFilename, onFinalSu
               </a>
             </div>
           </div>
+
+          {aiSummary ? (
+            <div className="bg-cardBg border border-indigo-400/20 rounded-2xl p-6 shadow-xl overflow-hidden relative">
+              <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/10 via-transparent to-cyan-500/5 pointer-events-none" />
+              <div className="relative">
+                <div className="flex items-start gap-3">
+                  <div className="p-2.5 rounded-xl bg-indigo-500/10 border border-indigo-400/20">
+                    <CloudLightning className="w-5 h-5 text-indigo-300" />
+                  </div>
+                  <div>
+                    <p className="text-3xs font-bold uppercase tracking-[0.18em] text-indigo-300">{aiSummary.provider ?? 'AI'} Scientific Analysis</p>
+                    <h3 className="font-extrabold text-base text-white mt-1">Thunderstorm Probability</h3>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-[260px_1fr] gap-6 mt-6">
+                  <div className="bg-black/25 border border-borderBg rounded-xl p-5">
+                    <div className={`text-5xl font-black font-mono tracking-tight ${getRiskTheme(aiSummary.risk_level).value}`}>
+                      {aiSummary.thunderstorm_probability}%
+                    </div>
+                    <div className="h-2.5 bg-black/40 border border-borderBg rounded-full overflow-hidden mt-4">
+                      <div
+                        className={`h-full rounded-full transition-all duration-700 ${getRiskTheme(aiSummary.risk_level).bar}`}
+                        style={{ width: `${aiSummary.thunderstorm_probability}%` }}
+                      />
+                    </div>
+                    <div className="flex items-center justify-between gap-3 mt-4">
+                      <span className={`px-3 py-1.5 rounded-full border text-xs font-extrabold uppercase tracking-wider ${getRiskTheme(aiSummary.risk_level).badge}`}>
+                        {aiSummary.risk_level} Risk
+                      </span>
+                      <div className="text-right">
+                        <div className="text-sm font-extrabold text-white font-mono">{aiSummary.confidence}%</div>
+                        <div className="text-3xs text-gray-500 uppercase font-bold tracking-wider">Evidence</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-black/15 border border-borderBg rounded-xl p-5">
+                    <h4 className="text-3xs text-gray-500 font-bold uppercase tracking-wider">AI Explanation</h4>
+                    <p className="text-sm text-gray-300 leading-relaxed mt-3">{aiSummary.summary}</p>
+                  </div>
+                </div>
+
+                {aiSummary.impacts.length > 0 && (
+                  <div className="mt-5 pt-4 border-t border-borderBg">
+                    <h4 className="text-3xs text-gray-500 font-bold uppercase tracking-wider mb-3">Potential Impacts</h4>
+                    <ul className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                      {aiSummary.impacts.map((impact, index) => (
+                        <li key={`${impact}-${index}`} className="flex items-start gap-2 text-xs text-gray-300 bg-black/20 border border-borderBg rounded-lg p-3">
+                          <AlertTriangle className="w-3.5 h-3.5 text-indigo-300 shrink-0 mt-0.5" />
+                          <span>{impact}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : aiSummaryError ? (
+            <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-4 text-xs flex items-start gap-3">
+              <AlertTriangle className="w-5 h-5 text-yellow-500 shrink-0" />
+              <div>
+                <h3 className="font-bold text-yellow-400">AI Weather Summary Unavailable</h3>
+                <p className="text-gray-400 mt-1">{aiSummaryError}</p>
+              </div>
+            </div>
+          ) : null}
 
           <PreviewTable filename={finalizeResponse.final_file} sessionId={sessionId} />
         </div>
