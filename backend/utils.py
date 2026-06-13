@@ -2,16 +2,24 @@ import os
 import json
 import uuid
 import shutil
+import tempfile
 import pandas as pd
 import numpy as np
 
-WORKSPACE_BASE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "workspace")
+LOCAL_WORKSPACE_BASE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "workspace")
+
+
+def get_workspace_base() -> str:
+    """Return the writable workspace root for the current runtime."""
+    if os.getenv("VERCEL"):
+        return os.path.join(tempfile.gettempdir(), "workspace")
+    return LOCAL_WORKSPACE_BASE
 
 def get_session_dir(session_id: str) -> str:
     """Gets or creates the directory for a user session."""
     if not session_id or session_id == "null" or session_id == "undefined":
         session_id = str(uuid.uuid4())
-    sess_dir = os.path.join(WORKSPACE_BASE, f"session_{session_id}")
+    sess_dir = os.path.join(get_workspace_base(), f"session_{session_id}")
     os.makedirs(sess_dir, exist_ok=True)
     return sess_dir
 
