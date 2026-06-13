@@ -291,10 +291,10 @@ export default function IngestionStep({ sessionId, onIngestSuccess }: IngestionS
         description="This step downloads raw spatial meteorological datasets (NetCDF format) based on your coordinates and timeframe, and automatically maps/co-registers them. If no API keys are provided, the system falls back to a high-fidelity synthetic simulation. Individual source datasets are converted to standard CSVs and outer-joined on spatial coordinates and hourly timestamps, filling missing values with NaNs."
       />
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 lg:gap-8">
         
         {/* LEFT PANEL: Bounding Coordinates */}
-        <div className="bg-cardBg border border-borderBg p-6 rounded-2xl flex flex-col justify-between shadow-lg">
+        <div className="bg-cardBg border border-borderBg p-4 sm:p-6 rounded-2xl flex flex-col justify-between shadow-lg">
           <div>
             <h2 className="text-lg font-bold text-white mb-4 border-b border-borderBg pb-2">Bounding Coordinates</h2>
             <p className="text-xs text-gray-400 mb-6">Specify the spatial envelope for gridded meteorological mapping.</p>
@@ -310,7 +310,7 @@ export default function IngestionStep({ sessionId, onIngestSuccess }: IngestionS
                 </div>
               </div>
 
-              <div className="flex justify-between gap-4">
+              <div className="flex justify-between gap-3 sm:gap-4">
                 {/* West */}
                 <div className="flex flex-col items-center">
                   <label className="text-xs text-gray-400 font-bold uppercase mb-1">West Limit (°E)</label>
@@ -353,7 +353,7 @@ export default function IngestionStep({ sessionId, onIngestSuccess }: IngestionS
         </div>
 
         {/* RIGHT PANEL: Time Range & Parameters */}
-        <div className="bg-cardBg border border-borderBg p-6 rounded-2xl shadow-lg lg:col-span-2">
+        <div className="bg-cardBg border border-borderBg p-4 sm:p-6 rounded-2xl shadow-lg lg:col-span-2 min-w-0">
           <h2 className="text-lg font-bold text-white mb-4 border-b border-borderBg pb-2">Temporal Window & Resolution</h2>
           <p className="text-xs text-gray-400 mb-6">Select historical segments and temporal frequencies to ingest.</p>
           
@@ -453,7 +453,7 @@ export default function IngestionStep({ sessionId, onIngestSuccess }: IngestionS
       <div className="bg-cardBg border border-borderBg p-6 rounded-2xl mt-8 shadow-lg">
         <h2 className="text-lg font-bold text-white mb-6 border-b border-borderBg pb-2">Select Data Sources</h2>
         
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 lg:gap-6">
           
           {/* ERA5 CARD */}
           <div className={`border rounded-xl p-5 transition-all duration-300 ${
@@ -746,7 +746,7 @@ export default function IngestionStep({ sessionId, onIngestSuccess }: IngestionS
         <button
           onClick={handleTriggerPipeline}
           disabled={isRunning}
-          className={`px-8 py-4 rounded-xl font-extrabold text-sm uppercase tracking-wider flex items-center gap-3 transition-all duration-300 ${
+          className={`w-full sm:w-auto justify-center px-5 sm:px-8 py-4 rounded-xl font-extrabold text-xs sm:text-sm uppercase tracking-wider flex items-center gap-3 transition-all duration-300 ${
             isRunning 
               ? 'bg-gray-600 cursor-not-allowed text-gray-400' 
               : 'bg-accentRed hover:bg-accentRedHover text-white shadow-lg shadow-accentRed/30 hover:scale-105'
@@ -775,7 +775,7 @@ export default function IngestionStep({ sessionId, onIngestSuccess }: IngestionS
 
       {/* SAMPLING REPORT & SMART MERGE PANEL */}
       {samplingReport && !ingestStats && (
-        <div className="bg-cardBg/95 border-2 border-borderBg p-6 rounded-3xl mt-8 shadow-2xl animate-fade-in">
+        <div className="bg-cardBg/95 border-2 border-borderBg p-4 sm:p-6 rounded-2xl lg:rounded-3xl mt-8 shadow-2xl animate-fade-in min-w-0">
           <h2 className="text-lg font-bold text-white mb-4 border-b border-borderBg pb-2 flex items-center gap-2">
             <span>🔬 Gridded Temporal Sampling Report</span>
             <span className="bg-blue-500/10 border border-blue-500/30 px-2 py-0.5 rounded text-3xs font-bold text-blue-400">Analysis Complete</span>
@@ -888,7 +888,7 @@ export default function IngestionStep({ sessionId, onIngestSuccess }: IngestionS
             <button
               onClick={handleConfirmMerge}
               disabled={isMerging}
-              className={`px-8 py-3.5 rounded-xl font-extrabold text-sm uppercase tracking-wider flex items-center gap-3 transition-all ${
+              className={`w-full sm:w-auto justify-center px-5 sm:px-8 py-3.5 rounded-xl font-extrabold text-xs sm:text-sm uppercase tracking-wider flex items-center gap-3 transition-all ${
                 isMerging 
                   ? 'bg-gray-600 cursor-not-allowed text-gray-400' 
                   : 'bg-successGreen hover:bg-successGreenHover text-white shadow-lg shadow-successGreen/25 hover:scale-105'
@@ -912,7 +912,7 @@ export default function IngestionStep({ sessionId, onIngestSuccess }: IngestionS
         <div className="mt-8 border-t border-borderBg pt-8">
           <h2 className="text-lg font-bold text-white mb-4">Ingestion Results</h2>
           
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-5 lg:gap-6">
             {/* stats card */}
             <div className="bg-cardBg border border-borderBg p-5 rounded-xl md:col-span-2">
               <h3 className="font-bold text-sm text-white mb-3">Dataset Statistics</h3>
@@ -935,7 +935,7 @@ export default function IngestionStep({ sessionId, onIngestSuccess }: IngestionS
               
               <a 
                 href={getDownloadUrl(ingestStats.filename, sessionId)}
-                className="px-6 py-2.5 bg-successGreen hover:bg-successGreenHover text-white rounded-lg font-bold text-xs uppercase tracking-wider flex items-center gap-2 transition-all"
+                className="w-full sm:w-auto justify-center px-5 sm:px-6 py-2.5 bg-successGreen hover:bg-successGreenHover text-white rounded-lg font-bold text-xs uppercase tracking-wider flex items-center gap-2 transition-all"
               >
                 <Download className="w-4 h-4" />
                 <span>Download Raw Dataset (CSV)</span>

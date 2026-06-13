@@ -128,7 +128,7 @@ export default function App() {
       
       {/* Toast Notification */}
       {toast && (
-        <div className={`fixed top-4 right-4 z-50 px-5 py-3.5 rounded-xl font-bold text-xs uppercase tracking-wider shadow-2xl transition-all animate-bounce ${
+        <div className={`fixed top-3 left-3 right-3 sm:left-auto sm:right-4 sm:top-4 sm:max-w-md z-50 px-4 sm:px-5 py-3 sm:py-3.5 rounded-xl font-bold text-xs uppercase tracking-wider shadow-2xl transition-all animate-bounce ${
           toast.type === 'success' 
             ? 'bg-successGreen border border-green-400 text-white' 
             : toast.type === 'error'
@@ -145,21 +145,21 @@ export default function App() {
       />
 
       {/* Top Header */}
-      <header className="border-b border-borderBg bg-cardBg/90 backdrop-blur sticky top-0 z-40 px-8 py-4 flex justify-between items-center shadow-md">
-        <div className="flex items-center gap-3">
+      <header className="border-b border-borderBg bg-cardBg/90 backdrop-blur sticky top-0 z-40 px-4 sm:px-6 lg:px-8 py-4 flex flex-col lg:flex-row lg:justify-between lg:items-center gap-4 shadow-md">
+        <div className="flex items-center gap-3 w-full lg:w-auto min-w-0">
           <CloudLightning className="w-6 h-6 text-accentRed animate-pulse" />
-          <div>
-            <h1 className="text-sm font-extrabold text-white tracking-widest uppercase flex items-center gap-2">
+          <div className="min-w-0">
+            <h1 className="text-xs sm:text-sm font-extrabold text-white tracking-widest uppercase flex flex-wrap items-center gap-2">
               <span>Meteorological Ingestion & Pipeline</span>
               <span className="bg-accentRed/10 border border-accentRed/30 px-1.5 py-0.5 rounded text-4xs font-bold text-accentRed tracking-normal">V1.0</span>
             </h1>
-            <p className="text-4xs text-gray-500 font-bold uppercase tracking-wider">Atmospheric Data Co-Registration & Dimensionality Optimization</p>
+            <p className="text-4xs text-gray-500 font-bold uppercase tracking-wider leading-relaxed">Atmospheric Data Co-Registration & Dimensionality Optimization</p>
           </div>
         </div>
 
         {/* Global Connection state badge */}
-        <div className="flex items-center gap-6">
-          <div className="flex items-center gap-4 text-3xs font-bold uppercase tracking-wider text-gray-400">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 lg:gap-6 w-full lg:w-auto">
+          <div className="flex flex-wrap items-center gap-3 sm:gap-4 text-3xs font-bold uppercase tracking-wider text-gray-400">
             <div className="flex items-center gap-1.5">
               <Satellite className="w-3.5 h-3.5 text-blue-400" />
               <span className="hidden md:inline">SATELLITE LINK: ACTIVE</span>
@@ -170,6 +170,7 @@ export default function App() {
             </div>
           </div>
           
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
           <button
             onClick={() => setShowClaudeSettings(true)}
             className="px-3 py-1.5 border border-indigo-400/30 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 hover:text-white rounded font-bold text-3xs uppercase tracking-wider transition-all flex items-center gap-1.5"
@@ -184,11 +185,12 @@ export default function App() {
           >
             Reset Session
           </button>
+          </div>
         </div>
       </header>
 
       {/* MAIN CONTAINER */}
-      <main className="max-w-7xl mx-auto w-full p-8 flex-1 flex flex-col justify-start">
+      <main className="max-w-7xl mx-auto w-full px-3 py-4 sm:px-5 sm:py-6 lg:p-8 flex-1 flex flex-col justify-start">
         
         {/* Horizontal stepper (always visible) */}
         <Stepper 
@@ -198,7 +200,7 @@ export default function App() {
         />
 
         {/* Step contents render */}
-        <div className="bg-cardBg/35 border border-borderBg/50 rounded-3xl p-8 shadow-xl flex-1 backdrop-blur-md">
+        <div className="bg-cardBg/35 border border-borderBg/50 rounded-2xl lg:rounded-3xl p-3 sm:p-5 lg:p-8 shadow-xl flex-1 backdrop-blur-md min-w-0">
           {currentStep === 1 && (
             <IngestionStep 
               sessionId={sessionId} 

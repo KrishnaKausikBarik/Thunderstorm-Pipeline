@@ -100,7 +100,7 @@ export default function DerivedStep({ sessionId, cleanedFilename, onDerivedSucce
       />
 
       {loadingCatalog ? (
-        <div className="bg-cardBg border border-borderBg rounded-2xl p-12 flex flex-col items-center justify-center min-h-[300px]">
+        <div className="bg-cardBg border border-borderBg rounded-2xl p-6 sm:p-12 flex flex-col items-center justify-center text-center min-h-[260px] sm:min-h-[300px]">
           <div className="w-10 h-10 border-4 border-accentRed border-t-transparent rounded-full animate-spin mb-4" />
           <p className="text-sm text-gray-400">Inspecting cleaned CSV and loading physical formula database...</p>
         </div>
@@ -109,7 +109,7 @@ export default function DerivedStep({ sessionId, cleanedFilename, onDerivedSucce
           
           {/* CATALOG TABLE BOX */}
           <div className="bg-cardBg border border-borderBg rounded-2xl overflow-hidden shadow-xl">
-            <div className="px-6 py-4 border-b border-borderBg flex justify-between items-center bg-black/20">
+            <div className="px-4 sm:px-6 py-4 border-b border-borderBg flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 bg-black/20">
               <div>
                 <h3 className="font-extrabold text-sm text-white uppercase tracking-wider">Derived Parameters Catalog</h3>
                 <p className="text-3xs text-gray-400 mt-0.5">Vectorized calculations mapped dynamically to active dataset column profiles.</p>
@@ -118,7 +118,7 @@ export default function DerivedStep({ sessionId, cleanedFilename, onDerivedSucce
               <button
                 onClick={handleSelectAllAvailable}
                 disabled={catalog.filter(i => i.available).length === 0}
-                className="px-4 py-2 border border-borderBg hover:bg-black/20 text-gray-300 hover:text-white rounded-lg text-xs font-bold transition-all disabled:opacity-40"
+                className="w-full sm:w-auto px-4 py-2 border border-borderBg hover:bg-black/20 text-gray-300 hover:text-white rounded-lg text-xs font-bold transition-all disabled:opacity-40"
               >
                 Select All Available
               </button>
@@ -211,7 +211,7 @@ export default function DerivedStep({ sessionId, cleanedFilename, onDerivedSucce
             <button
               onClick={handleComputeParameters}
               disabled={selectedParams.length === 0 || computing}
-              className={`px-8 py-4 rounded-xl font-extrabold text-sm uppercase tracking-wider flex items-center gap-3 transition-all duration-300 ${
+              className={`w-full sm:w-auto justify-center px-5 sm:px-8 py-4 rounded-xl font-extrabold text-xs sm:text-sm uppercase tracking-wider flex items-center gap-3 transition-all duration-300 ${
                 selectedParams.length === 0 || computing
                   ? 'bg-gray-600 cursor-not-allowed text-gray-400'
                   : 'bg-accentRed hover:bg-accentRedHover text-white shadow-lg shadow-accentRed/30 hover:scale-105'
@@ -235,7 +235,7 @@ export default function DerivedStep({ sessionId, cleanedFilename, onDerivedSucce
           {results && (
             <div>
               <div className="bg-cardBg border border-borderBg p-6 rounded-2xl shadow-lg flex flex-col md:flex-row md:items-center justify-between gap-6">
-                <div>
+                <div className="min-w-0">
                   <h3 className="font-extrabold text-sm text-white uppercase tracking-wider flex items-center gap-2">
                     <span className="text-successGreen">✓</span> CALCULATIONS COMPLETE
                   </h3>
@@ -245,7 +245,7 @@ export default function DerivedStep({ sessionId, cleanedFilename, onDerivedSucce
                 
                 <a 
                   href={getDownloadUrl(results.derived_file, sessionId)}
-                  className="px-6 py-3 bg-successGreen hover:bg-successGreenHover text-white rounded-lg font-bold text-xs uppercase tracking-wider flex items-center gap-2 transition-all shadow-md shadow-successGreen/25 shrink-0"
+                  className="w-full md:w-auto justify-center px-5 sm:px-6 py-3 bg-successGreen hover:bg-successGreenHover text-white rounded-lg font-bold text-xs uppercase tracking-wider flex items-center gap-2 transition-all shadow-md shadow-successGreen/25 shrink-0"
                 >
                   <Download className="w-4 h-4" />
                   <span>Download Dataset with Derived Parameters (CSV)</span>

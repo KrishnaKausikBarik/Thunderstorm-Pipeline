@@ -273,7 +273,7 @@ export default function DimReductionStep({ sessionId, derivedFilename, onFinalSu
 
   if (loading && !results) {
     return (
-      <div className="bg-cardBg border border-borderBg rounded-2xl p-12 flex flex-col items-center justify-center min-h-[300px]">
+      <div className="bg-cardBg border border-borderBg rounded-2xl p-6 sm:p-12 flex flex-col items-center justify-center text-center min-h-[260px] sm:min-h-[300px]">
         <div className="w-10 h-10 border-4 border-accentRed border-t-transparent rounded-full animate-spin mb-4" />
         <p className="text-sm text-gray-400">Performing Spearman Rank Correlation analysis on active features...</p>
       </div>
@@ -322,7 +322,7 @@ export default function DimReductionStep({ sessionId, derivedFilename, onFinalSu
 
       {/* DIMS SUB-STEP CONNECTOR */}
       {!finalizeResponse && (
-        <div className="flex border border-borderBg bg-cardBg rounded-xl p-2 mb-8 gap-4 font-bold text-xs shadow-md">
+        <div className="flex flex-col sm:flex-row border border-borderBg bg-cardBg rounded-xl p-2 mb-8 gap-2 sm:gap-4 font-bold text-xs shadow-md">
           {[
             { id: 'spearman', label: '4a: Spearman Rank' },
             { id: 'vif', label: '4b: VIF Scores' },
@@ -358,11 +358,11 @@ export default function DimReductionStep({ sessionId, derivedFilename, onFinalSu
           
           {/* SUB-STEP 4A: SPEARMAN */}
           {subStep === 'spearman' && (
-            <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
+            <div className="grid grid-cols-1 lg:grid-cols-5 gap-5 lg:gap-8">
               {/* Heatmap plot left */}
-              <div className="lg:col-span-3 bg-cardBg border border-borderBg p-5 rounded-2xl h-[450px]">
+              <div className="lg:col-span-3 bg-cardBg border border-borderBg p-4 sm:p-5 rounded-2xl h-[380px] sm:h-[450px] min-w-0">
                 <h3 className="font-extrabold text-sm text-white mb-2">Spearman Correlation Matrix</h3>
-                <div className="h-[380px]">
+                <div className="h-[310px] sm:h-[380px]">
                   <Plot 
                     data={[{
                       z: results.correlation?.matrix || [],
@@ -385,7 +385,7 @@ export default function DimReductionStep({ sessionId, derivedFilename, onFinalSu
               </div>
 
               {/* Correlation pairs right */}
-              <div className="lg:col-span-2 flex flex-col justify-between h-[450px]">
+              <div className="lg:col-span-2 flex flex-col justify-between h-auto lg:h-[450px] min-w-0">
                 <div className="bg-cardBg border border-borderBg p-5 rounded-2xl flex-1 overflow-hidden flex flex-col">
                   <h3 className="font-extrabold text-sm text-white mb-1">Highly Correlated Pairs (|r| &gt; 0.85)</h3>
                   <p className="text-3xs text-gray-500 mb-3 leading-normal">Strong intercorrelation causes model overfitting. We suggest dropping Feature B.</p>
@@ -512,8 +512,8 @@ export default function DimReductionStep({ sessionId, derivedFilename, onFinalSu
                   <h3 className="font-extrabold text-sm text-successGreen uppercase tracking-wider mb-2 border-b border-borderBg pb-1">Retained Features ({retainedFeatures.length})</h3>
                   <div className="flex-1 overflow-y-auto space-y-1.5 pr-1 custom-scrollbar">
                     {retainedFeatures.map(feat => (
-                      <div key={feat} className="flex justify-between items-center bg-darkBg border border-borderBg p-2 rounded text-xs hover:border-successGreen transition-colors group">
-                        <span className="font-mono text-gray-300 font-bold">{feat}</span>
+                        <div key={feat} className="flex justify-between items-center gap-2 bg-darkBg border border-borderBg p-2 rounded text-xs hover:border-successGreen transition-colors group">
+                        <span className="font-mono text-gray-300 font-bold truncate min-w-0">{feat}</span>
                         <button 
                           onClick={() => moveFeatureToDropped(feat)}
                           className="p-1 hover:bg-black/40 text-gray-400 hover:text-accentRed rounded transition-colors flex items-center gap-1 text-3xs font-bold uppercase"
@@ -534,8 +534,8 @@ export default function DimReductionStep({ sessionId, derivedFilename, onFinalSu
                       <div className="text-gray-500 italic py-6 text-center text-xs">No dropped columns. All features are retained.</div>
                     ) : (
                       droppedFeatures.map(feat => (
-                        <div key={feat} className="flex justify-between items-center bg-darkBg border border-borderBg p-2 rounded text-xs hover:border-accentRed transition-colors group">
-                          <span className="font-mono text-gray-500 line-through truncate max-w-[200px]">{feat}</span>
+                        <div key={feat} className="flex justify-between items-center gap-2 bg-darkBg border border-borderBg p-2 rounded text-xs hover:border-accentRed transition-colors group">
+                          <span className="font-mono text-gray-500 line-through truncate min-w-0 max-w-[200px]">{feat}</span>
                           <button 
                             onClick={() => moveFeatureToRetained(feat)}
                             className="p-1 hover:bg-black/40 text-gray-400 hover:text-successGreen rounded transition-colors flex items-center gap-1 text-3xs font-bold uppercase"
@@ -559,23 +559,23 @@ export default function DimReductionStep({ sessionId, derivedFilename, onFinalSu
           )}
 
           {/* BACK/FORWARD ACTIONS BUTTONS */}
-          <div className="flex justify-between items-center pt-4 border-t border-borderBg/50">
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 pt-4 border-t border-borderBg/50">
             {subStep !== 'spearman' ? (
               <button
                 onClick={() => {
                   if (subStep === 'vif') setSubStep('spearman');
                   else if (subStep === 'finalize') setSubStep('vif');
                 }}
-                className="px-5 py-2.5 border border-borderBg hover:bg-cardBg text-gray-300 hover:text-white rounded-lg text-xs font-bold transition-all"
+                className="w-full sm:w-auto px-5 py-2.5 border border-borderBg hover:bg-cardBg text-gray-300 hover:text-white rounded-lg text-xs font-bold transition-all"
               >
                 Back
               </button>
-            ) : <div />}
+            ) : <div className="hidden sm:block" />}
 
             {subStep !== 'finalize' ? (
               <button
                 onClick={subStep === 'spearman' ? handleProceedToVif : handleProceedToFinalSelection}
-                className="px-6 py-2.5 bg-accentRed hover:bg-accentRedHover text-white rounded-lg font-bold text-xs uppercase tracking-wider flex items-center gap-1.5 transition-all shadow-md"
+                className="w-full sm:w-auto justify-center px-6 py-2.5 bg-accentRed hover:bg-accentRedHover text-white rounded-lg font-bold text-xs uppercase tracking-wider flex items-center gap-1.5 transition-all shadow-md"
               >
                 <span>Proceed</span>
                 <ArrowRight className="w-4 h-4" />
@@ -584,7 +584,7 @@ export default function DimReductionStep({ sessionId, derivedFilename, onFinalSu
               <button
                 onClick={handleFinalizeDataset}
                 disabled={retainedFeatures.length === 0 || loading}
-                className="px-8 py-3.5 bg-successGreen hover:bg-successGreenHover text-white rounded-xl font-extrabold text-sm uppercase tracking-wider flex items-center gap-2 transition-all shadow-md shadow-successGreen/25"
+                className="w-full sm:w-auto justify-center px-5 sm:px-8 py-3.5 bg-successGreen hover:bg-successGreenHover text-white rounded-xl font-extrabold text-xs sm:text-sm uppercase tracking-wider flex items-center gap-2 transition-all shadow-md shadow-successGreen/25"
               >
                 {loading ? (
                   <>
@@ -608,7 +608,7 @@ export default function DimReductionStep({ sessionId, derivedFilename, onFinalSu
       {finalizeResponse && (
         <div className="space-y-8 mt-4">
           <div className="bg-cardBg border border-borderBg p-6 rounded-2xl shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-6">
-            <div>
+            <div className="min-w-0">
               <h3 className="font-extrabold text-sm text-successGreen uppercase tracking-wider flex items-center gap-2">
                 <span className="text-successGreen">✓</span> DATASET OPTIMIZED & FINALIZED
               </h3>
@@ -616,17 +616,17 @@ export default function DimReductionStep({ sessionId, derivedFilename, onFinalSu
               <p className="text-2xs text-gray-500 mt-1 font-semibold">Final schema shape: <span className="text-white font-mono">{finalizeResponse.stats.shape[0]} rows x {finalizeResponse.stats.shape[1]} columns</span>.</p>
             </div>
             
-            <div className="flex flex-wrap gap-4 shrink-0">
+            <div className="flex flex-col sm:flex-row flex-wrap gap-3 sm:gap-4 shrink-0 w-full md:w-auto">
               <a 
                 href={getDownloadUrl(finalizeResponse.final_file, sessionId)}
-                className="px-6 py-3 bg-successGreen hover:bg-successGreenHover text-white rounded-lg font-bold text-xs uppercase tracking-wider flex items-center gap-2 transition-colors shadow-md"
+                className="w-full sm:w-auto justify-center px-5 sm:px-6 py-3 bg-successGreen hover:bg-successGreenHover text-white rounded-lg font-bold text-xs uppercase tracking-wider flex items-center gap-2 transition-colors shadow-md"
               >
                 <Download className="w-4 h-4" />
                 <span>Download Final Dataset (CSV)</span>
               </a>
               <a 
                 href={getDownloadUrl(finalizeResponse.html_report_file, sessionId)}
-                className="px-6 py-3 bg-cardBg hover:bg-black/40 text-gray-300 hover:text-white rounded-lg border border-borderBg font-bold text-xs uppercase tracking-wider flex items-center gap-2 transition-all"
+                className="w-full sm:w-auto justify-center px-5 sm:px-6 py-3 bg-cardBg hover:bg-black/40 text-gray-300 hover:text-white rounded-lg border border-borderBg font-bold text-xs uppercase tracking-wider flex items-center gap-2 transition-all"
               >
                 <Download className="w-4 h-4 text-accentRed" />
                 <span>Download Dim Report (HTML)</span>

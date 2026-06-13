@@ -34,7 +34,7 @@ export default function PreviewTable({ filename, sessionId, refreshTrigger = 0 }
 
   if (loading) {
     return (
-      <div className="bg-cardBg border border-borderBg rounded-xl p-8 flex flex-col items-center justify-center min-h-[250px]">
+      <div className="bg-cardBg border border-borderBg rounded-xl p-5 sm:p-8 flex flex-col items-center justify-center min-h-[220px] sm:min-h-[250px] text-center">
         <div className="w-10 h-10 border-4 border-accentRed border-t-transparent rounded-full animate-spin mb-4" />
         <p className="text-sm text-gray-400">Loading dataset preview rows from workspace...</p>
       </div>
@@ -59,18 +59,18 @@ export default function PreviewTable({ filename, sessionId, refreshTrigger = 0 }
   const visibleRows = data.rows.slice(0, 20);
 
   return (
-    <div className="bg-cardBg border border-borderBg rounded-xl overflow-hidden shadow-xl mt-6">
-      <div className="px-6 py-4 border-b border-borderBg flex items-center justify-between bg-black/20">
-        <div className="flex items-center gap-2">
+    <div className="bg-cardBg border border-borderBg rounded-xl overflow-hidden shadow-xl mt-6 min-w-0">
+      <div className="px-4 sm:px-6 py-4 border-b border-borderBg flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 bg-black/20">
+        <div className="flex items-center gap-2 min-w-0">
           <Database className="w-4 h-4 text-accentRed" />
-          <span className="font-semibold text-white text-sm">Dataset Preview (First 20 of {data.rows.length} rows loaded)</span>
+          <span className="font-semibold text-white text-sm leading-tight">Dataset Preview (First 20 of {data.rows.length} rows loaded)</span>
         </div>
-        <div className="text-xs text-gray-400 font-mono">
+        <div className="text-xs text-gray-400 font-mono break-all">
           Filename: <span className="text-gray-300">{filename}</span>
         </div>
       </div>
       
-      <div className="overflow-x-auto overflow-y-auto max-h-[400px]">
+      <div className="overflow-x-auto overflow-y-auto max-h-[360px] sm:max-h-[400px] custom-scrollbar">
         <table className="min-w-full divide-y divide-borderBg text-left font-mono text-xs select-text">
           <thead className="bg-black/40 sticky top-0 z-10">
             <tr>

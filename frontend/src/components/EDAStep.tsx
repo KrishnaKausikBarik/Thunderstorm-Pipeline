@@ -201,14 +201,14 @@ export default function EDAStep({ sessionId, rawFilename, onEDASuccess }: EDASte
 
       {/* TRIGGER BOARD */}
       {!analysisResults && !isRunning && (
-        <div className="bg-cardBg border border-borderBg p-8 rounded-2xl flex flex-col items-center justify-center text-center shadow-lg min-h-[300px]">
+        <div className="bg-cardBg border border-borderBg p-5 sm:p-8 rounded-2xl flex flex-col items-center justify-center text-center shadow-lg min-h-[260px] sm:min-h-[300px]">
           <BarChart2 className="w-12 h-12 text-accentRed mb-4 animate-pulse" />
           <h3 className="font-extrabold text-lg text-white">Exploratory Data Analysis Pending</h3>
           <p className="text-xs text-gray-400 max-w-md mt-1 mb-6">Initialize the automated multi-level audits to evaluate shape, data types, missing records, distribution shapes, and correlations.</p>
           
           <button
             onClick={triggerEDAAnalysis}
-            className="px-8 py-3.5 bg-accentRed hover:bg-accentRedHover text-white rounded-xl font-extrabold text-sm uppercase tracking-wider flex items-center gap-2 transition-all hover:scale-105 shadow-lg shadow-accentRed/30"
+            className="w-full sm:w-auto justify-center px-5 sm:px-8 py-3.5 bg-accentRed hover:bg-accentRedHover text-white rounded-xl font-extrabold text-xs sm:text-sm uppercase tracking-wider flex items-center gap-2 transition-all hover:scale-105 shadow-lg shadow-accentRed/30"
           >
             <Play className="w-4 h-4 fill-white" />
             <span>Run EDA & Preprocessing</span>
@@ -218,9 +218,9 @@ export default function EDAStep({ sessionId, rawFilename, onEDASuccess }: EDASte
 
       {/* STREAMING PROCESS SCREEN */}
       {(isRunning || (logs.length > 0 && !analysisResults)) && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 lg:gap-8">
           {/* Checklist progress */}
-          <div className="bg-cardBg border border-borderBg p-6 rounded-2xl shadow-lg">
+          <div className="bg-cardBg border border-borderBg p-4 sm:p-6 rounded-2xl shadow-lg">
             <h3 className="font-bold text-sm text-white mb-4 border-b border-borderBg pb-2">Analysis Checklist</h3>
             <div className="space-y-3">
               {CHECKLIST_STEPS.map((step, idx) => {
@@ -266,14 +266,14 @@ export default function EDAStep({ sessionId, rawFilename, onEDASuccess }: EDASte
       {/* ANALYSIS COMPLETE & PREPROCESSING CONFIG BOARD */}
       {analysisResults && !appliedResponse && (
         <div className="space-y-8">
-          <div className="bg-accentRed/5 border-2 border-accentRed/25 rounded-2xl p-6 shadow-md">
+          <div className="bg-accentRed/5 border-2 border-accentRed/25 rounded-2xl p-4 sm:p-6 shadow-md">
             <h2 className="text-lg font-bold text-white mb-2 flex items-center gap-2">
               <AlertTriangle className="w-5 h-5 text-accentRed" />
               <span>Interactive Data Cleaning & Preprocessing Required</span>
             </h2>
             <p className="text-xs text-gray-400 mb-6">Review the parameters with quality flaws and choose your corrections strategy. Click Apply below to build the final clean CSV.</p>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 lg:gap-6">
               
               {/* High Missing Card */}
               <div className="bg-cardBg border border-borderBg p-5 rounded-xl">
@@ -414,17 +414,17 @@ export default function EDAStep({ sessionId, rawFilename, onEDASuccess }: EDASte
               <p className="text-xs text-gray-400 mt-1">{appliedResponse.message}</p>
             </div>
             
-            <div className="flex flex-wrap gap-4 shrink-0">
+            <div className="flex flex-col sm:flex-row flex-wrap gap-3 sm:gap-4 shrink-0 w-full md:w-auto">
               <a 
                 href={getDownloadUrl(appliedResponse.cleaned_file, sessionId)}
-                className="px-5 py-2.5 bg-successGreen hover:bg-successGreenHover text-white rounded-lg font-bold text-xs uppercase tracking-wider flex items-center gap-2 transition-colors shadow-md"
+                className="w-full sm:w-auto justify-center px-5 py-2.5 bg-successGreen hover:bg-successGreenHover text-white rounded-lg font-bold text-xs uppercase tracking-wider flex items-center gap-2 transition-colors shadow-md"
               >
                 <Download className="w-4 h-4" />
                 <span>Download Cleaned Dataset (CSV)</span>
               </a>
               <a 
                 href={getDownloadUrl(appliedResponse.html_report_file, sessionId)}
-                className="px-5 py-2.5 bg-cardBg hover:bg-black/40 text-gray-300 hover:text-white rounded-lg border border-borderBg font-bold text-xs uppercase tracking-wider flex items-center gap-2 transition-all"
+                className="w-full sm:w-auto justify-center px-5 py-2.5 bg-cardBg hover:bg-black/40 text-gray-300 hover:text-white rounded-lg border border-borderBg font-bold text-xs uppercase tracking-wider flex items-center gap-2 transition-all"
               >
                 <Download className="w-4 h-4 text-accentRed" />
                 <span>Download EDA Report (HTML)</span>
@@ -453,11 +453,11 @@ export default function EDAStep({ sessionId, rawFilename, onEDASuccess }: EDASte
               })}
             </div>
 
-            <div className="p-6 bg-darkBg/30 min-h-[400px]">
+            <div className="p-3 sm:p-6 bg-darkBg/30 min-h-[360px] sm:min-h-[400px] overflow-hidden">
               
               {/* TAB 1: SUMMARY */}
               {activeTab === 'Summary' && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5 lg:gap-8">
                   <div>
                     <h3 className="font-extrabold text-sm text-white mb-4 uppercase tracking-wider text-accentRed">Preprocessing Log Summary</h3>
                     <div className="space-y-4 text-xs font-semibold text-gray-300">
@@ -481,7 +481,7 @@ export default function EDAStep({ sessionId, rawFilename, onEDASuccess }: EDASte
                 <div>
                   <h3 className="font-bold text-sm text-white mb-2 uppercase tracking-wider">Missing Value Distribution Chart</h3>
                   <p className="text-2xs text-gray-400 mb-4">Displays the percentage of raw missing entries detected per variable prior to imputation.</p>
-                  <div className="w-full h-[400px]">
+                  <div className="w-full h-[320px] sm:h-[400px]">
                     <Plot
                       data={[{
                         x: Object.keys(analysisResults.missingness),
@@ -540,7 +540,7 @@ export default function EDAStep({ sessionId, rawFilename, onEDASuccess }: EDASte
                   <h3 className="font-bold text-sm text-white mb-1 uppercase tracking-wider w-full text-left">Spearman Rank Correlation matrix</h3>
                   <p className="text-2xs text-gray-400 mb-6 w-full text-left">Heatmap displaying the top 20 variables sorted descending by variance to check first-look inter-correlations.</p>
                   
-                  <div className="w-full max-w-3xl h-[480px]">
+                  <div className="w-full max-w-3xl h-[360px] sm:h-[480px]">
                     <Plot
                       data={[{
                         z: analysisResults.correlation.matrix,
@@ -589,7 +589,7 @@ export default function EDAStep({ sessionId, rawFilename, onEDASuccess }: EDASte
                   </div>
 
                   {selectedTrendCol && analysisResults.temporal_trends[selectedTrendCol] ? (
-                    <div className="w-full h-[380px]">
+                    <div className="w-full h-[320px] sm:h-[380px]">
                       <Plot
                         data={[{
                           x: analysisResults.temporal_trends[selectedTrendCol].x,
@@ -685,7 +685,7 @@ export default function EDAStep({ sessionId, rawFilename, onEDASuccess }: EDASte
                   })}
 
                   {/* Heatmap & Histogram grid */}
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-6">
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 lg:gap-8 mt-6">
                     <div>
                       <h4 className="font-bold text-xs text-white uppercase tracking-wider mb-2">Time-Gap Frequency Distribution</h4>
                       <p className="text-3xs text-gray-400 mb-4">Observation intervals in hours plotted across sources.</p>

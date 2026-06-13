@@ -66,3 +66,34 @@ html, body {
 .step-transition {
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
+
+/* Responsive safety net for dense scientific UI surfaces */
+* {
+  min-width: 0;
+}
+
+button,
+a {
+  text-wrap: balance;
+}
+
+table {
+  width: max-content;
+  min-width: 100%;
+}
+
+.js-plotly-plot,
+.plot-container,
+.svg-container {
+  max-width: 100%;
+}
+
+@media (max-width: 640px) {
+  body {
+    font-size: 14px;
+  }
+
+  .js-plotly-plot .modebar {
+    display: none;
+  }
+}

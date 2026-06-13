@@ -14,17 +14,19 @@ const STEPS = [
 ];
 
 export default function Stepper({ currentStep, unlockedSteps, onStepClick }: StepperProps) {
+  const progressPercent = ((Math.max(...unlockedSteps) - 1) / (STEPS.length - 1)) * 100;
+
   return (
-    <div className="bg-cardBg border border-borderBg rounded-2xl p-6 mb-8 shadow-xl">
-      <div className="relative flex justify-between items-center max-w-5xl mx-auto">
+    <div className="bg-cardBg border border-borderBg rounded-2xl p-3 sm:p-5 lg:p-6 mb-5 sm:mb-8 shadow-xl overflow-x-auto custom-scrollbar">
+      <div className="relative flex justify-between items-start min-w-[560px] sm:min-w-0 max-w-5xl mx-auto px-2">
         {/* Connection line background */}
-        <div className="absolute top-1/2 left-0 w-full h-0.5 bg-borderBg -translate-y-1/2 z-0" />
+        <div className="absolute top-5 left-8 right-8 h-0.5 bg-borderBg z-0" />
         
         {/* Connection line progress */}
         <div 
-          className="absolute top-1/2 left-0 h-0.5 bg-gradient-to-r from-accentRed to-successGreen -translate-y-1/2 z-0 transition-all duration-500" 
+          className="absolute top-5 left-8 h-0.5 bg-gradient-to-r from-accentRed to-successGreen z-0 transition-all duration-500" 
           style={{ 
-            width: `${((Math.max(...unlockedSteps) - 1) / (STEPS.length - 1)) * 100}%` 
+            width: progressPercent === 0 ? 0 : `calc(${progressPercent}% - 4rem)` 
           }}
         />
 
@@ -38,12 +40,12 @@ export default function Stepper({ currentStep, unlockedSteps, onStepClick }: Ste
               key={step.id}
               onClick={() => isUnlocked && onStepClick(step.id)}
               disabled={!isUnlocked}
-              className={`relative z-10 flex flex-col items-center group focus:outline-none transition-all duration-300 ${
+              className={`relative z-10 flex w-32 sm:w-auto sm:flex-1 flex-col items-center group focus:outline-none transition-all duration-300 ${
                 isUnlocked ? 'cursor-pointer' : 'cursor-not-allowed opacity-45'
               }`}
             >
               <div 
-                className={`w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all duration-300 step-transition ${
+                className={`w-10 h-10 shrink-0 rounded-full flex items-center justify-center border-2 transition-all duration-300 step-transition ${
                   isActive 
                     ? 'bg-darkBg border-accentRed text-white shadow-[0_0_15px_rgba(229,62,62,0.6)] scale-110' 
                     : isCompleted
@@ -60,13 +62,13 @@ export default function Stepper({ currentStep, unlockedSteps, onStepClick }: Ste
                 )}
               </div>
               
-              <div className="mt-3 text-center">
+              <div className="mt-3 text-center px-1">
                 <span className={`block text-xs uppercase tracking-wider font-bold ${
                   isActive ? 'text-accentRed' : isCompleted ? 'text-successGreen' : 'text-gray-400'
                 }`}>
                   {step.desc}
                 </span>
-                <span className={`block text-sm font-semibold transition-colors mt-0.5 ${
+                <span className={`block text-xs sm:text-sm font-semibold transition-colors mt-0.5 leading-tight ${
                   isActive ? 'text-white' : 'text-gray-300 group-hover:text-white'
                 }`}>
                   {step.label}
