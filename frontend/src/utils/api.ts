@@ -1,6 +1,10 @@
 import type { DimFinalizeResponse } from '../types';
 
-export const API_BASE = "http://localhost:8000/api";
+export const API_BASE =
+  import.meta.env.DEV
+    ? "http://localhost:8000/api"
+    : "/_/backend/api";
+    : "https://thunderstorm-pipeline.onrender.com/api";
 
 export interface ClaudeConfigStatus {
   configured: boolean;
