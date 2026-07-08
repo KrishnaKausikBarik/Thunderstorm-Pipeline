@@ -29,7 +29,6 @@ try {
 import HelpTooltip from './HelpTooltip';
 import PreviewTable from './PreviewTable';
 import type { AIWeatherSummary, DimAnalyzeResults, DimFinalizeResponse, VifResultItem, SpearmanPairItem } from '../types';
-import { useTheme } from '../contexts/ThemeContext';
 
 interface DimReductionStepProps {
   sessionId: string;
@@ -74,7 +73,6 @@ function getRiskTheme(riskLevel: AIWeatherSummary['risk_level']) {
 
 export default function DimReductionStep({ sessionId, derivedFilename, onFinalSuccess }: DimReductionStepProps) {
   const { currentUser } = useAuth();
-  const { theme } = useTheme();
   const [subStep, setSubStep] = useState<'spearman' | 'vif' | 'finalize'>('spearman');
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<DimAnalyzeResults | null>(null);
@@ -309,9 +307,8 @@ export default function DimReductionStep({ sessionId, derivedFilename, onFinalSu
     }
   };
 
-  const isLight = theme === 'light';
-  const chartText = isLight ? '#334155' : '#a0aec0';
-  const chartGrid = isLight ? '#cbd5e1' : '#2d3748';
+  const chartText = '#a0aec0';
+  const chartGrid = '#2d3748';
 
   const plotLayoutDefaults = {
     paper_bgcolor: 'rgba(0,0,0,0)',

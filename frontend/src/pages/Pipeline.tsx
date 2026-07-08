@@ -193,7 +193,7 @@ export default function Pipeline() {
 
         {/* ════ LEFT SIDEBAR ════ */}
         <aside
-          className="force-dark hidden lg:flex flex-col w-64 xl:w-72 shrink-0 fixed left-0 top-0 bottom-0 z-20 px-4 py-6 border-r overflow-y-auto"
+          className="hidden lg:flex flex-col w-64 xl:w-72 shrink-0 fixed left-0 top-0 bottom-0 z-20 px-4 py-6 border-r overflow-y-auto"
           style={{
             backgroundColor: '#12121a',
             borderColor: 'rgba(255, 255, 255, 0.08)',

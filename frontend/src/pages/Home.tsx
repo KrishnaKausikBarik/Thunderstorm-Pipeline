@@ -15,7 +15,7 @@ import {
 
 export default function Home() {
   return (
-    <div className="force-dark relative min-h-screen overflow-hidden" style={{ backgroundColor: 'var(--bg)' }}>
+    <div className="relative min-h-screen overflow-hidden" style={{ backgroundColor: 'var(--bg)' }}>
       {/* Ambient aesthetic background */}
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
         {/* Aurora gradient wash — slow drift */}

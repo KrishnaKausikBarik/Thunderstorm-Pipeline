@@ -25,7 +25,6 @@ try {
 import HelpTooltip from './HelpTooltip';
 import PreviewTable from './PreviewTable';
 import type { EDAResults } from '../types';
-import { useTheme } from '../contexts/ThemeContext';
 
 interface EDAStepProps {
   sessionId: string;
@@ -48,7 +47,6 @@ const CHECKLIST_STEPS = [
 ];
 
 export default function EDAStep({ sessionId, rawFilename, onEDASuccess }: EDAStepProps) {
-  const { theme } = useTheme();
   const [isRunning, setIsRunning] = useState(false);
   const [currentStepIdx, setCurrentStepIdx] = useState(-1);
   const [completedSteps, setCompletedSteps] = useState<number[]>([]);
@@ -180,9 +178,8 @@ export default function EDAStep({ sessionId, rawFilename, onEDASuccess }: EDASte
     }
   };
 
-  const isLight = theme === 'light';
-  const chartText = isLight ? '#334155' : '#a0aec0';
-  const chartGrid = isLight ? '#cbd5e1' : '#2d3748';
+  const chartText = '#a0aec0';
+  const chartGrid = '#2d3748';
 
   // Plotly Styling Shared configurations
   const plotLayoutDefaults = {

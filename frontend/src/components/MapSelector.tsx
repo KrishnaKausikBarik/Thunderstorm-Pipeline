@@ -1,7 +1,6 @@
 import { useEffect } from 'react';
 import { MapContainer, TileLayer, Rectangle, useMapEvents, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
-import { useTheme } from '../contexts/ThemeContext';
 
 interface MapSelectorProps {
   north: number;
@@ -31,9 +30,6 @@ function MapAutoFitter({ bounds }: { bounds: [[number, number], [number, number]
 }
 
 export default function MapSelector({ north, south, east, west, onBoundsChange }: MapSelectorProps) {
-  const { theme } = useTheme();
-  const isLight = theme === 'light';
-
   const centerLat = (north + south) / 2;
   const centerLng = (east + west) / 2;
   
@@ -62,14 +58,8 @@ export default function MapSelector({ north, south, east, west, onBoundsChange }
     <div className="w-full h-full flex flex-col gap-3">
 
       {/* Map Container */}
-      <div className={`flex-1 w-full min-h-[200px] border rounded-lg overflow-hidden relative z-0 ${
-        isLight ? 'bg-slate-50 border-slate-200' : 'bg-darkBg border-borderGlow'
-      }`}>
-        <div className={`absolute bottom-2 left-2 z-[1000] backdrop-blur text-[10px] px-2 py-1 rounded-lg shadow border pointer-events-none ${
-          isLight
-            ? 'bg-white/90 text-slate-700 border-slate-200'
-            : 'bg-darkBg/80 text-white border-borderGlow'
-        }`}>
+      <div className="flex-1 w-full min-h-[200px] border rounded-lg overflow-hidden relative z-0 bg-darkBg border-borderGlow">
+        <div className="absolute bottom-2 left-2 z-[1000] backdrop-blur text-[10px] px-2 py-1 rounded-lg shadow border pointer-events-none bg-darkBg/80 text-white border-borderGlow">
           Click map to recenter box
         </div>
         <MapContainer 
@@ -80,9 +70,7 @@ export default function MapSelector({ north, south, east, west, onBoundsChange }
           style={{ height: '100%', width: '100%' }}
         >
           <TileLayer
-            url={isLight
-              ? 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'
-              : 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'}
+            url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
             attribution='&copy; <a href="https://carto.com/">Carto</a>'
           />
           

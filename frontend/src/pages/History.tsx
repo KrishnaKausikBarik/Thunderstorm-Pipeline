@@ -3,7 +3,6 @@ import { collection, query, where, orderBy, getDocs } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { Database, Calendar, Download, AlertCircle, Loader2 } from 'lucide-react';
-import { useTheme } from '../contexts/ThemeContext';
 
 interface RunData {
   id: string;
@@ -16,11 +15,9 @@ interface RunData {
 
 export default function History() {
   const { currentUser } = useAuth();
-  const { theme } = useTheme();
   const [runs, setRuns] = useState<RunData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const isLight = theme === 'light';
 
   useEffect(() => {
     if (!currentUser) return;
@@ -125,11 +122,7 @@ export default function History() {
                   href={run.downloadUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className={`w-full flex items-center justify-center gap-2 py-2.5 border border-accentPrimary/30 text-accentPrimary rounded-xl transition-all font-bold text-xs uppercase tracking-wider ${
-                    isLight
-                      ? 'bg-white/80 hover:bg-accentPrimary hover:text-white shadow-sm'
-                      : 'bg-accentPrimary/10 hover:bg-accentPrimary hover:text-white'
-                  }`}
+                  className="w-full flex items-center justify-center gap-2 py-2.5 border border-accentPrimary/30 text-accentPrimary rounded-xl transition-all font-bold text-xs uppercase tracking-wider bg-accentPrimary/10 hover:bg-accentPrimary hover:text-white"
                 >
                   <Download className="w-4 h-4" />
                   Download Dataset

@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import { CheckCircle2, Eye, EyeOff, KeyRound, X } from 'lucide-react';
-import { useTheme } from '../contexts/ThemeContext';
 import { fetchClaudeConfig, updateClaudeConfig } from '../utils/api';
 
 interface ClaudeApiSettingsProps {
@@ -9,7 +8,6 @@ interface ClaudeApiSettingsProps {
 }
 
 export default function ClaudeApiSettings({ open, onClose }: ClaudeApiSettingsProps) {
-  const { theme } = useTheme();
   const [apiKey, setApiKey] = useState('');
   const [model, setModel] = useState('claude-sonnet-4-6');
   const [configured, setConfigured] = useState(false);
@@ -17,7 +15,6 @@ export default function ClaudeApiSettings({ open, onClose }: ClaudeApiSettingsPr
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
-  const isLight = theme === 'light';
 
   useEffect(() => {
     if (!open) return;
@@ -76,7 +73,7 @@ export default function ClaudeApiSettings({ open, onClose }: ClaudeApiSettingsPr
         <div className="flex items-start justify-between gap-4 p-6 border-b border-borderGlow">
           <div className="flex items-start gap-3">
             <div className="p-2.5 bg-indigo-500/10 border border-indigo-400/20 rounded-3xl">
-              <KeyRound className={`w-5 h-5 ${isLight ? 'text-indigo-600' : 'text-indigo-300'}`} />
+              <KeyRound className="w-5 h-5 text-indigo-300" />
             </div>
             <div>
               <h2 className="text-base font-extrabold text-white">Claude API Configuration</h2>
@@ -97,12 +94,8 @@ export default function ClaudeApiSettings({ open, onClose }: ClaudeApiSettingsPr
         <div className="p-6 space-y-5">
           <div className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-xs font-bold ${
             configured
-              ? isLight
-                ? 'bg-emerald-500/10 border-emerald-500/25 text-emerald-700'
-                : 'bg-green-500/10 border-green-500/25 text-green-300'
-              : isLight
-                ? 'bg-amber-500/10 border-amber-500/25 text-amber-700'
-                : 'bg-yellow-500/10 border-yellow-500/25 text-yellow-300'
+              ? 'bg-green-500/10 border-green-500/25 text-green-300'
+              : 'bg-yellow-500/10 border-yellow-500/25 text-yellow-300'
           }`}>
             {configured && <CheckCircle2 className="w-4 h-4" />}
             <span>{configured ? 'Claude API key is configured' : 'Claude API key is not configured'}</span>
@@ -155,12 +148,12 @@ export default function ClaudeApiSettings({ open, onClose }: ClaudeApiSettingsPr
           </p>
 
           {error && (
-            <div className={`rounded-lg border p-3 text-xs ${isLight ? 'bg-red-500/10 border-red-500/25 text-red-700' : 'bg-red-500/10 border-red-500/25 text-red-300'}`}>
+            <div className="rounded-lg border p-3 text-xs bg-red-500/10 border-red-500/25 text-red-300">
               {error}
             </div>
           )}
           {saved && (
-            <div className={`rounded-lg border p-3 text-xs ${isLight ? 'bg-emerald-500/10 border-emerald-500/25 text-emerald-700' : 'bg-green-500/10 border-green-500/25 text-green-300'}`}>
+            <div className="rounded-lg border p-3 text-xs bg-green-500/10 border-green-500/25 text-green-300">
               Claude API configuration updated successfully.
             </div>
           )}
