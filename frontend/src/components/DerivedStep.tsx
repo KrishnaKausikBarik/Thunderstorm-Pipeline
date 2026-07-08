@@ -100,16 +100,16 @@ export default function DerivedStep({ sessionId, cleanedFilename, onDerivedSucce
       />
 
       {loadingCatalog ? (
-        <div className="bg-cardBg border border-borderBg rounded-2xl p-6 sm:p-12 flex flex-col items-center justify-center text-center min-h-[260px] sm:min-h-[300px]">
-          <div className="w-10 h-10 border-4 border-accentRed border-t-transparent rounded-full animate-spin mb-4" />
+        <div className="glass-panel rounded-3xl p-6 sm:p-12 flex flex-col items-center justify-center text-center min-h-[260px] sm:min-h-[300px]">
+          <div className="w-10 h-10 border-4 border-accentPrimary border-t-transparent rounded-full animate-spin mb-4" />
           <p className="text-sm text-gray-400">Inspecting cleaned CSV and loading physical formula database...</p>
         </div>
       ) : (
         <div className="space-y-8">
           
           {/* CATALOG TABLE BOX */}
-          <div className="bg-cardBg border border-borderBg rounded-2xl overflow-hidden shadow-xl">
-            <div className="px-4 sm:px-6 py-4 border-b border-borderBg flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 bg-black/20">
+          <div className="glass-panel rounded-3xl overflow-hidden shadow-glass">
+            <div className="px-4 sm:px-6 py-4 border-b border-borderGlow flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 bg-black/20">
               <div>
                 <h3 className="font-extrabold text-sm text-white uppercase tracking-wider">Derived Parameters Catalog</h3>
                 <p className="text-3xs text-gray-400 mt-0.5">Vectorized calculations mapped dynamically to active dataset column profiles.</p>
@@ -118,7 +118,7 @@ export default function DerivedStep({ sessionId, cleanedFilename, onDerivedSucce
               <button
                 onClick={handleSelectAllAvailable}
                 disabled={catalog.filter(i => i.available).length === 0}
-                className="w-full sm:w-auto px-4 py-2 border border-borderBg hover:bg-black/20 text-gray-300 hover:text-white rounded-lg text-xs font-bold transition-all disabled:opacity-40"
+                className="w-full sm:w-auto px-4 py-2 border border-borderGlow hover:bg-black/20 text-gray-300 hover:text-white rounded-lg text-xs font-bold transition-all disabled:opacity-40"
               >
                 Select All Available
               </button>
@@ -155,7 +155,7 @@ export default function DerivedStep({ sessionId, cleanedFilename, onDerivedSucce
                                   className={`px-1 rounded text-3xs font-mono font-semibold border ${
                                     isMissing 
                                       ? 'border-red-900/40 text-red-500 bg-red-950/20' 
-                                      : 'border-borderBg text-gray-300 bg-darkBg/60'
+                                      : 'border-borderGlow text-gray-300 bg-darkBg/60'
                                   }`}
                                 >
                                   {inp}
@@ -170,12 +170,12 @@ export default function DerivedStep({ sessionId, cleanedFilename, onDerivedSucce
                             <span className="text-successGreen font-extrabold text-sm">✅</span>
                           ) : (
                             <span 
-                              className="text-accentRed font-extrabold text-sm cursor-pointer select-none inline-flex items-center gap-1 group relative"
+                              className="text-accentPrimary font-extrabold text-sm cursor-pointer select-none inline-flex items-center gap-1 group relative"
                               title={`Missing: ${item.missing_inputs.join(', ')}`}
                             >
                               <span>❌</span>
-                              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-2 rounded bg-black border border-borderBg text-3xs text-gray-400 font-normal leading-normal shadow-2xl opacity-0 scale-95 pointer-events-none group-hover:opacity-100 group-hover:scale-100 transition-all z-20">
-                                <span className="font-bold text-accentRed">Missing columns:</span>
+                              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-2 rounded bg-black border border-borderGlow text-3xs text-gray-400 font-normal leading-normal shadow-glass opacity-0 scale-95 pointer-events-none group-hover:opacity-100 group-hover:scale-100 transition-all z-20">
+                                <span className="font-bold text-accentPrimary">Missing columns:</span>
                                 <div className="mt-1 font-mono text-[10px] text-gray-300">{item.missing_inputs.join(', ')}</div>
                               </div>
                             </span>
@@ -201,8 +201,8 @@ export default function DerivedStep({ sessionId, cleanedFilename, onDerivedSucce
 
           {/* Trigger calculations */}
           {error && (
-            <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4 text-red-400 text-xs flex items-center gap-2">
-              <AlertTriangle className="w-5 h-5 text-accentRed shrink-0" />
+            <div className="bg-red-500/10 border border-red-500/20 rounded-3xl p-4 text-accentPrimary text-xs flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-accentPrimary shrink-0" />
               <span>{error}</span>
             </div>
           )}
@@ -211,10 +211,10 @@ export default function DerivedStep({ sessionId, cleanedFilename, onDerivedSucce
             <button
               onClick={handleComputeParameters}
               disabled={selectedParams.length === 0 || computing}
-              className={`w-full sm:w-auto justify-center px-5 sm:px-8 py-4 rounded-xl font-extrabold text-xs sm:text-sm uppercase tracking-wider flex items-center gap-3 transition-all duration-300 ${
+              className={`w-full sm:w-auto justify-center px-5 sm:px-8 py-4 rounded-3xl font-extrabold text-xs sm:text-sm uppercase tracking-wider flex items-center gap-3 transition-all duration-300 ${
                 selectedParams.length === 0 || computing
                   ? 'bg-gray-600 cursor-not-allowed text-gray-400'
-                  : 'bg-accentRed hover:bg-accentRedHover text-white shadow-lg shadow-accentRed/30 hover:scale-105'
+                  : 'bg-accentPrimary hover:bg-accentPrimaryHover text-white shadow-glass shadow-accentPrimary/30 hover:scale-105'
               }`}
             >
               {computing ? (
@@ -234,7 +234,7 @@ export default function DerivedStep({ sessionId, cleanedFilename, onDerivedSucce
           {/* SUCCESS BOX & DOWNLOAD ON COMPLETE */}
           {results && (
             <div>
-              <div className="bg-cardBg border border-borderBg p-6 rounded-2xl shadow-lg flex flex-col md:flex-row md:items-center justify-between gap-6">
+              <div className="glass-panel p-6 rounded-3xl shadow-glass flex flex-col md:flex-row md:items-center justify-between gap-6">
                 <div className="min-w-0">
                   <h3 className="font-extrabold text-sm text-white uppercase tracking-wider flex items-center gap-2">
                     <span className="text-successGreen">✓</span> CALCULATIONS COMPLETE

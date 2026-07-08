@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { Terminal, ShieldAlert } from 'lucide-react';
+import { useTheme } from '../contexts/ThemeContext';
 
 interface TerminalLogLine {
   message: string;
@@ -14,7 +15,9 @@ interface TerminalLogProps {
 }
 
 export default function TerminalLog({ logs, title = "Data Pipeline Progress Terminal" }: TerminalLogProps) {
+  const { theme } = useTheme();
   const terminalEndRef = useRef<HTMLDivElement>(null);
+  const isLight = theme === 'light';
 
   useEffect(() => {
     // Smooth auto-scroll
@@ -24,24 +27,28 @@ export default function TerminalLog({ logs, title = "Data Pipeline Progress Term
   }, [logs]);
 
   return (
-    <div className="bg-black/85 border-2 border-borderBg rounded-xl p-4 shadow-2xl font-mono text-xs overflow-hidden h-64 flex flex-col">
+    <div className={`border-2 rounded-lg p-4 shadow-glass font-mono text-xs overflow-hidden h-64 flex flex-col ${
+      isLight
+        ? 'bg-slate-50/95 border-violet-200/70'
+        : 'bg-black/85 border-borderGlow'
+    }`}>
       {/* Terminal Title Bar */}
-      <div className="flex items-center justify-between border-b border-borderBg pb-2 mb-3">
-        <div className="flex items-center gap-2 text-gray-400">
-          <Terminal className="w-4 h-4 text-accentRed" />
-          <span className="font-semibold text-gray-300">{title}</span>
+      <div className="flex items-center justify-between border-b border-borderGlow pb-2 mb-3">
+        <div className={`flex items-center gap-2 ${isLight ? 'text-slate-500' : 'text-gray-400'}`}>
+          <Terminal className="w-4 h-4 text-accentPrimary" />
+          <span className={`font-semibold ${isLight ? 'text-slate-700' : 'text-gray-300'}`}>{title}</span>
         </div>
         <div className="flex gap-1.5">
-          <div className="w-2.5 h-2.5 rounded-full bg-red-600" />
-          <div className="w-2.5 h-2.5 rounded-full bg-yellow-600" />
-          <div className="w-2.5 h-2.5 rounded-full bg-green-600" />
+          <div className={`w-2.5 h-2.5 rounded-full ${isLight ? 'bg-rose-400' : 'bg-red-600'}`} />
+          <div className={`w-2.5 h-2.5 rounded-full ${isLight ? 'bg-amber-400' : 'bg-yellow-600'}`} />
+          <div className={`w-2.5 h-2.5 rounded-full ${isLight ? 'bg-emerald-400' : 'bg-green-600'}`} />
         </div>
       </div>
       
       {/* Scrolling Text Container */}
       <div className="flex-1 overflow-y-auto space-y-2 pr-2 custom-scrollbar">
         {logs.length === 0 ? (
-          <div className="text-gray-500 italic py-2 flex items-center gap-2">
+          <div className={`${isLight ? 'text-slate-500' : 'text-gray-500'} italic py-2 flex items-center gap-2`}>
             <span>⟳ Standby: Pipeline trigger pending...</span>
           </div>
         ) : (
@@ -49,7 +56,7 @@ export default function TerminalLog({ logs, title = "Data Pipeline Progress Term
             if (log.isReasoning) {
               return (
                 <div key={index} className="my-2 select-none">
-                  <details className="text-yellow-400 border border-yellow-500/25 bg-yellow-500/5 rounded-xl p-3 cursor-pointer">
+                  <details className="text-yellow-400 border border-yellow-500/25 bg-yellow-500/5 rounded-lg p-3 cursor-pointer">
                     <summary className="font-bold font-mono flex items-center gap-1.5 text-yellow-500 text-xs">
                       <span>🤖 Agent reasoning</span>
                     </summary>
@@ -67,7 +74,7 @@ export default function TerminalLog({ logs, title = "Data Pipeline Progress Term
             
             return (
               <div key={index} className="flex items-start gap-2 leading-relaxed">
-                <span className="text-gray-600 select-none">[{log.timestamp}]</span>
+                <span className={`${isLight ? 'text-slate-400' : 'text-gray-600'} select-none`}>[{log.timestamp}]</span>
                 <span className={`flex-1 ${
                   isFailed 
                     ? 'text-red-500 font-bold' 
@@ -75,7 +82,9 @@ export default function TerminalLog({ logs, title = "Data Pipeline Progress Term
                       ? 'text-green-400 font-medium'
                       : isRunning
                         ? 'text-blue-400 animate-pulse'
-                        : 'text-gray-300'
+                        : isLight
+                          ? 'text-slate-700'
+                          : 'text-gray-300'
                 }`}>
                   {log.message}
                 </span>

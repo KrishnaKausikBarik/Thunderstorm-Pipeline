@@ -25,6 +25,7 @@ try {
 import HelpTooltip from './HelpTooltip';
 import PreviewTable from './PreviewTable';
 import type { EDAResults } from '../types';
+import { useTheme } from '../contexts/ThemeContext';
 
 interface EDAStepProps {
   sessionId: string;
@@ -47,6 +48,7 @@ const CHECKLIST_STEPS = [
 ];
 
 export default function EDAStep({ sessionId, rawFilename, onEDASuccess }: EDAStepProps) {
+  const { theme } = useTheme();
   const [isRunning, setIsRunning] = useState(false);
   const [currentStepIdx, setCurrentStepIdx] = useState(-1);
   const [completedSteps, setCompletedSteps] = useState<number[]>([]);
@@ -178,13 +180,18 @@ export default function EDAStep({ sessionId, rawFilename, onEDASuccess }: EDASte
     }
   };
 
+  const isLight = theme === 'light';
+  const chartText = isLight ? '#334155' : '#a0aec0';
+  const chartGrid = isLight ? '#cbd5e1' : '#2d3748';
+
   // Plotly Styling Shared configurations
   const plotLayoutDefaults = {
     paper_bgcolor: 'rgba(0,0,0,0)',
     plot_bgcolor: 'rgba(0,0,0,0)',
-    font: { color: '#a0aec0', family: 'Inter, sans-serif' },
-    xaxis: { gridcolor: '#2d3748', zerolinecolor: '#2d3748', linecolor: '#2d3748' },
-    yaxis: { gridcolor: '#2d3748', zerolinecolor: '#2d3748', linecolor: '#2d3748' },
+    font: { color: chartText, family: 'Urbanist, sans-serif' },
+    xaxis: { gridcolor: chartGrid, zerolinecolor: chartGrid, linecolor: chartGrid },
+    yaxis: { gridcolor: chartGrid, zerolinecolor: chartGrid, linecolor: chartGrid },
+    legend: { font: { color: chartText } },
     margin: { t: 40, r: 20, b: 40, l: 50 },
     autosize: true
   };
@@ -201,14 +208,14 @@ export default function EDAStep({ sessionId, rawFilename, onEDASuccess }: EDASte
 
       {/* TRIGGER BOARD */}
       {!analysisResults && !isRunning && (
-        <div className="bg-cardBg border border-borderBg p-5 sm:p-8 rounded-2xl flex flex-col items-center justify-center text-center shadow-lg min-h-[260px] sm:min-h-[300px]">
-          <BarChart2 className="w-12 h-12 text-accentRed mb-4 animate-pulse" />
+        <div className="glass-panel p-5 sm:p-8 rounded-3xl flex flex-col items-center justify-center text-center shadow-glass min-h-[260px] sm:min-h-[300px]">
+          <BarChart2 className="w-12 h-12 text-accentPrimary mb-4 animate-pulse" />
           <h3 className="font-extrabold text-lg text-white">Exploratory Data Analysis Pending</h3>
           <p className="text-xs text-gray-400 max-w-md mt-1 mb-6">Initialize the automated multi-level audits to evaluate shape, data types, missing records, distribution shapes, and correlations.</p>
           
           <button
             onClick={triggerEDAAnalysis}
-            className="w-full sm:w-auto justify-center px-5 sm:px-8 py-3.5 bg-accentRed hover:bg-accentRedHover text-white rounded-xl font-extrabold text-xs sm:text-sm uppercase tracking-wider flex items-center gap-2 transition-all hover:scale-105 shadow-lg shadow-accentRed/30"
+            className="w-full sm:w-auto justify-center px-5 sm:px-8 py-3.5 bg-accentPrimary hover:bg-accentPrimaryHover text-white rounded-3xl font-extrabold text-xs sm:text-sm uppercase tracking-wider flex items-center gap-2 transition-all hover:scale-105 shadow-glass shadow-accentPrimary/30"
           >
             <Play className="w-4 h-4 fill-white" />
             <span>Run EDA & Preprocessing</span>
@@ -220,8 +227,8 @@ export default function EDAStep({ sessionId, rawFilename, onEDASuccess }: EDASte
       {(isRunning || (logs.length > 0 && !analysisResults)) && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 lg:gap-8">
           {/* Checklist progress */}
-          <div className="bg-cardBg border border-borderBg p-4 sm:p-6 rounded-2xl shadow-lg">
-            <h3 className="font-bold text-sm text-white mb-4 border-b border-borderBg pb-2">Analysis Checklist</h3>
+          <div className="glass-panel p-4 sm:p-6 rounded-3xl shadow-glass">
+            <h3 className="font-bold text-sm text-white mb-4 border-b border-borderGlow pb-2">Analysis Checklist</h3>
             <div className="space-y-3">
               {CHECKLIST_STEPS.map((step, idx) => {
                 const isDone = completedSteps.includes(idx + 1);
@@ -231,12 +238,12 @@ export default function EDAStep({ sessionId, rawFilename, onEDASuccess }: EDASte
                     {isDone ? (
                       <CheckCircle2 className="w-4 h-4 text-successGreen shrink-0" />
                     ) : isCurrent ? (
-                      <div className="w-4 h-4 border-2 border-accentRed border-t-transparent rounded-full animate-spin shrink-0" />
+                      <div className="w-4 h-4 border-2 border-accentPrimary border-t-transparent rounded-full animate-spin shrink-0" />
                     ) : (
-                      <div className="w-4 h-4 border-2 border-borderBg rounded-full shrink-0" />
+                      <div className="w-4 h-4 border-2 border-borderGlow rounded-full shrink-0" />
                     )}
                     <span className={`font-semibold ${
-                      isDone ? 'text-gray-300' : isCurrent ? 'text-accentRed font-bold' : 'text-gray-500'
+                      isDone ? 'text-gray-300' : isCurrent ? 'text-accentPrimary font-bold' : 'text-gray-500'
                     }`}>
                       {step}
                     </span>
@@ -248,10 +255,10 @@ export default function EDAStep({ sessionId, rawFilename, onEDASuccess }: EDASte
 
           {/* Running Terminal */}
           <div className="lg:col-span-2 flex flex-col justify-between">
-            <div className="bg-black/85 border border-borderBg rounded-xl p-4 shadow-xl font-mono text-xs overflow-y-auto h-72 space-y-1.5 custom-scrollbar text-green-400">
-              <div className="text-gray-500 font-bold border-b border-borderBg pb-2 mb-2 flex items-center justify-between">
+            <div className="bg-black/85 border border-borderGlow rounded-3xl p-4 shadow-glass font-mono text-xs overflow-y-auto h-72 space-y-1.5 custom-scrollbar text-green-400">
+              <div className="text-gray-500 font-bold border-b border-borderGlow pb-2 mb-2 flex items-center justify-between">
                 <span>⚡ EDA Engine Streaming Live Logs...</span>
-                <span className="w-2.5 h-2.5 rounded-full bg-accentRed animate-ping" />
+                <span className="w-2.5 h-2.5 rounded-full bg-accentPrimary animate-ping" />
               </div>
               {logs.map((log, i) => (
                 <div key={i} className="leading-relaxed">
@@ -266,9 +273,9 @@ export default function EDAStep({ sessionId, rawFilename, onEDASuccess }: EDASte
       {/* ANALYSIS COMPLETE & PREPROCESSING CONFIG BOARD */}
       {analysisResults && !appliedResponse && (
         <div className="space-y-8">
-          <div className="bg-accentRed/5 border-2 border-accentRed/25 rounded-2xl p-4 sm:p-6 shadow-md">
+          <div className="bg-accentPrimary/5 border-2 border-accentPrimary/25 rounded-3xl p-4 sm:p-6 shadow-md">
             <h2 className="text-lg font-bold text-white mb-2 flex items-center gap-2">
-              <AlertTriangle className="w-5 h-5 text-accentRed" />
+              <AlertTriangle className="w-5 h-5 text-accentPrimary" />
               <span>Interactive Data Cleaning & Preprocessing Required</span>
             </h2>
             <p className="text-xs text-gray-400 mb-6">Review the parameters with quality flaws and choose your corrections strategy. Click Apply below to build the final clean CSV.</p>
@@ -276,10 +283,10 @@ export default function EDAStep({ sessionId, rawFilename, onEDASuccess }: EDASte
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 lg:gap-6">
               
               {/* High Missing Card */}
-              <div className="bg-cardBg border border-borderBg p-5 rounded-xl">
+              <div className="glass-panel p-5 rounded-3xl">
                 <h3 className="font-extrabold text-sm text-white mb-3 flex items-center justify-between">
                   <span>High Missingness (&gt;30%)</span>
-                  <span className="text-accentRed bg-accentRed/10 px-2 py-0.5 rounded text-3xs font-bold font-mono">
+                  <span className="text-accentPrimary bg-accentPrimary/10 px-2 py-0.5 rounded text-3xs font-bold font-mono">
                     {Object.keys(analysisResults.imputation_needs).filter(c => analysisResults.imputation_needs[c].strategy === 'user_ask').length} Columns
                   </span>
                 </h3>
@@ -291,15 +298,15 @@ export default function EDAStep({ sessionId, rawFilename, onEDASuccess }: EDASte
                     {Object.entries(analysisResults.imputation_needs)
                       .filter(([_, need]) => need.strategy === 'user_ask')
                       .map(([col, need]) => (
-                        <div key={col} className="flex flex-col gap-1 border-b border-borderBg pb-2 last:border-0 last:pb-0">
+                        <div key={col} className="flex flex-col gap-1 border-b border-borderGlow pb-2 last:border-0 last:pb-0">
                           <div className="flex justify-between items-center text-xs">
                             <span className="font-mono text-gray-300 truncate max-w-[150px]">{col}</span>
-                            <span className="text-accentRed font-semibold font-mono text-3xs">{need.pct.toFixed(1)}% missing</span>
+                            <span className="text-accentPrimary font-semibold font-mono text-3xs">{need.pct.toFixed(1)}% missing</span>
                           </div>
                           <select
                             value={imputationConfigs[col] || 'median'}
                             onChange={e => setImputationConfigs(prev => ({ ...prev, [col]: e.target.value }))}
-                            className="bg-darkBg border border-borderBg text-2xs text-gray-300 rounded p-1 focus:outline-none"
+                            className="bg-darkBg border border-borderGlow text-2xs text-gray-300 rounded p-1 focus:outline-none"
                           >
                             <option value="median">Fill with Column Median</option>
                             <option value="drop">Drop Column</option>
@@ -312,10 +319,10 @@ export default function EDAStep({ sessionId, rawFilename, onEDASuccess }: EDASte
               </div>
 
               {/* IQR Outlier Card */}
-              <div className="bg-cardBg border border-borderBg p-5 rounded-xl">
+              <div className="glass-panel p-5 rounded-3xl">
                 <h3 className="font-extrabold text-sm text-white mb-3 flex items-center justify-between">
                   <span>Outliers (IQR Method)</span>
-                  <span className="text-accentRed bg-accentRed/10 px-2 py-0.5 rounded text-3xs font-bold font-mono">
+                  <span className="text-accentPrimary bg-accentPrimary/10 px-2 py-0.5 rounded text-3xs font-bold font-mono">
                     {Object.keys(analysisResults.outliers).length} Columns
                   </span>
                 </h3>
@@ -325,7 +332,7 @@ export default function EDAStep({ sessionId, rawFilename, onEDASuccess }: EDASte
                 ) : (
                   <div className="space-y-3 max-h-[180px] overflow-y-auto pr-1">
                     {Object.entries(analysisResults.outliers).map(([col, count]) => (
-                      <div key={col} className="flex flex-col gap-1 border-b border-borderBg pb-2 last:border-0 last:pb-0">
+                      <div key={col} className="flex flex-col gap-1 border-b border-borderGlow pb-2 last:border-0 last:pb-0">
                         <div className="flex justify-between items-center text-xs">
                           <span className="font-mono text-gray-300 truncate max-w-[150px]">{col}</span>
                           <span className="text-yellow-500 font-semibold font-mono text-3xs">{count} values</span>
@@ -333,7 +340,7 @@ export default function EDAStep({ sessionId, rawFilename, onEDASuccess }: EDASte
                         <select
                           value={outlierConfigs[col] || 'cap'}
                           onChange={e => setOutlierConfigs(prev => ({ ...prev, [col]: e.target.value }))}
-                          className="bg-darkBg border border-borderBg text-2xs text-gray-300 rounded p-1 focus:outline-none"
+                          className="bg-darkBg border border-borderGlow text-2xs text-gray-300 rounded p-1 focus:outline-none"
                         >
                           <option value="cap">Cap at 1.5×IQR</option>
                           <option value="remove">Remove Rows</option>
@@ -346,14 +353,14 @@ export default function EDAStep({ sessionId, rawFilename, onEDASuccess }: EDASte
               </div>
 
               {/* Constant & Duplicates Card */}
-              <div className="bg-cardBg border border-borderBg p-5 rounded-xl flex flex-col justify-between">
+              <div className="glass-panel p-5 rounded-3xl flex flex-col justify-between">
                 <div>
-                  <h3 className="font-extrabold text-sm text-white mb-4 border-b border-borderBg pb-1">Filters & Deduplication</h3>
+                  <h3 className="font-extrabold text-sm text-white mb-4 border-b border-borderGlow pb-1">Filters & Deduplication</h3>
                   <div className="space-y-4 text-xs font-semibold">
                     <label className="flex items-center gap-3 cursor-pointer">
                       <input 
                         type="checkbox" checked={removeDuplicates} onChange={e => setRemoveDuplicates(e.target.checked)}
-                        className="w-4 h-4 accent-accentRed shrink-0"
+                        className="w-4 h-4 accent-accentPrimary shrink-0"
                       />
                       <div>
                         <span>Remove Duplicate Rows</span>
@@ -364,7 +371,7 @@ export default function EDAStep({ sessionId, rawFilename, onEDASuccess }: EDASte
                     <label className="flex items-center gap-3 cursor-pointer">
                       <input 
                         type="checkbox" checked={dropNearConstant} onChange={e => setDropNearConstant(e.target.checked)}
-                        className="w-4 h-4 accent-accentRed shrink-0"
+                        className="w-4 h-4 accent-accentPrimary shrink-0"
                       />
                       <div>
                         <span>Drop Constant Columns</span>
@@ -378,7 +385,7 @@ export default function EDAStep({ sessionId, rawFilename, onEDASuccess }: EDASte
                   <button
                     onClick={handleApplyPreprocessing}
                     disabled={isApplying}
-                    className={`w-full py-3 rounded-xl font-extrabold text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all ${
+                    className={`w-full py-3 rounded-3xl font-extrabold text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all ${
                       isApplying 
                         ? 'bg-gray-600 cursor-not-allowed text-gray-400' 
                         : 'bg-successGreen hover:bg-successGreenHover text-white shadow-md shadow-successGreen/25'
@@ -406,7 +413,7 @@ export default function EDAStep({ sessionId, rawFilename, onEDASuccess }: EDASte
       {/* PREPROCESSING COMPLETE & PREMIUM TABBED CHARTS PANEL */}
       {appliedResponse && (
         <div className="mt-8">
-          <div className="bg-cardBg border border-borderBg p-5 rounded-2xl shadow-lg mb-8 flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div className="glass-panel p-5 rounded-3xl shadow-glass mb-8 flex flex-col md:flex-row md:items-center justify-between gap-6">
             <div className="flex-1">
               <h3 className="font-extrabold text-sm text-white uppercase tracking-wider flex items-center gap-2">
                 <span className="text-successGreen">✓</span> PREPROCESSING COMPLETE
@@ -424,17 +431,17 @@ export default function EDAStep({ sessionId, rawFilename, onEDASuccess }: EDASte
               </a>
               <a 
                 href={getDownloadUrl(appliedResponse.html_report_file, sessionId)}
-                className="w-full sm:w-auto justify-center px-5 py-2.5 bg-cardBg hover:bg-black/40 text-gray-300 hover:text-white rounded-lg border border-borderBg font-bold text-xs uppercase tracking-wider flex items-center gap-2 transition-all"
+                className="w-full sm:w-auto justify-center px-5 py-2.5 glass-panel hover:bg-black/40 text-gray-300 hover:text-white rounded-lg border border-borderGlow font-bold text-xs uppercase tracking-wider flex items-center gap-2 transition-all"
               >
-                <Download className="w-4 h-4 text-accentRed" />
+                <Download className="w-4 h-4 text-accentPrimary" />
                 <span>Download EDA Report (HTML)</span>
               </a>
             </div>
           </div>
 
           {/* TABBED CHARTS CONTROL PANEL */}
-          <div className="bg-cardBg border border-borderBg rounded-2xl shadow-xl overflow-hidden mb-8">
-            <div className="flex border-b border-borderBg bg-black/10 font-bold text-xs">
+          <div className="glass-panel rounded-3xl shadow-glass overflow-hidden mb-8">
+            <div className="flex border-b border-borderGlow bg-black/10 font-bold text-xs">
               {(['Summary', 'Missing', 'Distributions', 'Correlations', 'Temporal', 'Sampling'] as const).map(tab => {
                 const isActive = activeTab === tab;
                 return (
@@ -443,7 +450,7 @@ export default function EDAStep({ sessionId, rawFilename, onEDASuccess }: EDASte
                     onClick={() => setActiveTab(tab)}
                     className={`px-6 py-4 transition-all focus:outline-none border-b-2 hover:text-white ${
                       isActive 
-                        ? 'border-accentRed text-white bg-darkBg' 
+                        ? 'border-accentPrimary text-white bg-darkBg' 
                         : 'border-transparent text-gray-400 hover:bg-black/10'
                     }`}
                   >
@@ -459,17 +466,17 @@ export default function EDAStep({ sessionId, rawFilename, onEDASuccess }: EDASte
               {activeTab === 'Summary' && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5 lg:gap-8">
                   <div>
-                    <h3 className="font-extrabold text-sm text-white mb-4 uppercase tracking-wider text-accentRed">Preprocessing Log Summary</h3>
+                    <h3 className="font-extrabold text-sm text-white mb-4 uppercase tracking-wider text-accentPrimary">Preprocessing Log Summary</h3>
                     <div className="space-y-4 text-xs font-semibold text-gray-300">
-                      <div className="flex justify-between border-b border-borderBg pb-1.5"><span>Duplicate rows removed:</span><span className="text-white">{appliedResponse.stats.shape[0] === analysisResults?.shape[0] ? '0' : analysisResults?.duplicate_count}</span></div>
-                      <div className="flex justify-between border-b border-borderBg pb-1.5"><span>Object columns encoded:</span><span className="text-white">{analysisResults?.encoded_columns.length || 0}</span></div>
-                      <div className="flex justify-between border-b border-borderBg pb-1.5"><span>Values imputed:</span><span className="text-white text-successGreen">{appliedResponse.message.match(/(\d+) values imputed/)?.[1] || '0'}</span></div>
-                      <div className="flex justify-between border-b border-borderBg pb-1.5"><span>Outliers capped:</span><span className="text-white text-accentRed">{appliedResponse.message.match(/(\d+) outlier values capped/)?.[1] || '0'}</span></div>
+                      <div className="flex justify-between border-b border-borderGlow pb-1.5"><span>Duplicate rows removed:</span><span className="text-white">{appliedResponse.stats.shape[0] === analysisResults?.shape[0] ? '0' : analysisResults?.duplicate_count}</span></div>
+                      <div className="flex justify-between border-b border-borderGlow pb-1.5"><span>Object columns encoded:</span><span className="text-white">{analysisResults?.encoded_columns.length || 0}</span></div>
+                      <div className="flex justify-between border-b border-borderGlow pb-1.5"><span>Values imputed:</span><span className="text-white text-successGreen">{appliedResponse.message.match(/(\d+) values imputed/)?.[1] || '0'}</span></div>
+                      <div className="flex justify-between border-b border-borderGlow pb-1.5"><span>Outliers capped:</span><span className="text-white text-accentPrimary">{appliedResponse.message.match(/(\d+) outlier values capped/)?.[1] || '0'}</span></div>
                       <div className="flex justify-between"><span>Final Dataset Shape:</span><span className="text-white font-mono text-sm">{appliedResponse.stats.shape[0]} rows x {appliedResponse.stats.shape[1]} cols</span></div>
                     </div>
                   </div>
 
-                  <div className="bg-cardBg/60 border border-borderBg rounded-xl p-5 flex flex-col justify-center">
+                  <div className="glass-panel rounded-3xl p-5 flex flex-col justify-center">
                     <h4 className="font-bold text-xs text-white uppercase tracking-wider mb-2">Automated Quality Cert</h4>
                     <p className="text-2xs text-gray-400 leading-relaxed">Multilevel quality checks completed successfully. Variable data types have been fully resolved to float arrays, seasonality extracted, and null gaps repaired via linear/KNN algorithms. The dataset is fully normalized and scientifically valid for derived atmospheric formula calculations.</p>
                   </div>
@@ -492,7 +499,7 @@ export default function EDAStep({ sessionId, rawFilename, onEDASuccess }: EDASte
                       layout={{
                         ...plotLayoutDefaults,
                         title: 'Missing Elements % per Variable',
-                        yaxis: { title: '% Missing', range: [0, 100], gridcolor: '#2d3748' },
+                        yaxis: { title: '% Missing', range: [0, 100], gridcolor: chartGrid, zerolinecolor: chartGrid, linecolor: chartGrid },
                       }}
                       config={{ responsive: true, displayModeBar: false }}
                       style={{ width: '100%', height: '100%' }}
@@ -509,7 +516,7 @@ export default function EDAStep({ sessionId, rawFilename, onEDASuccess }: EDASte
                   
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {analysisResults.distributions.map((dist) => (
-                      <div key={dist.name} className="bg-cardBg border border-borderBg rounded-xl p-3">
+                      <div key={dist.name} className="glass-panel rounded-3xl p-3">
                         <h4 className="font-mono text-2xs text-gray-300 font-extrabold truncate mb-2">{dist.name}</h4>
                         <div className="h-44">
                           <Plot
@@ -579,7 +586,7 @@ export default function EDAStep({ sessionId, rawFilename, onEDASuccess }: EDASte
                       <select
                         value={selectedTrendCol}
                         onChange={e => setSelectedTrendCol(e.target.value)}
-                        className="bg-cardBg border border-borderBg rounded text-xs p-2 text-white font-bold focus:outline-none"
+                        className="glass-panel rounded text-xs p-2 text-white font-bold focus:outline-none"
                       >
                         {analysisResults.distributions.map(d => (
                           <option key={d.name} value={d.name}>{d.name}</option>
@@ -624,7 +631,7 @@ export default function EDAStep({ sessionId, rawFilename, onEDASuccess }: EDASte
                   <h3 className="font-bold text-sm text-white uppercase tracking-wider">Spatial-Temporal Sampling & Grid Audit</h3>
                   <p className="text-2xs text-gray-400 mb-4">Detailed audit of observation intervals, coordinate duplicates, and temporal gaps derived from raw ingestion logs.</p>
                   
-                  <div className="overflow-x-auto rounded-xl border border-borderBg bg-darkBg/50 mb-6">
+                  <div className="overflow-x-auto rounded-3xl border border-borderGlow bg-darkBg/50 mb-6">
                     <table className="min-w-full divide-y divide-borderBg text-left text-xs">
                       <thead className="bg-black/40 text-gray-400 font-bold uppercase tracking-wider text-2xs">
                         <tr>
@@ -646,10 +653,10 @@ export default function EDAStep({ sessionId, rawFilename, onEDASuccess }: EDASte
                               <td className="px-5 py-4 font-bold text-white font-mono">{srcKey}</td>
                               <td className="px-5 py-4 truncate max-w-[200px]" title={sdata.variables.join(', ')}>{sdata.variables.join(', ')}</td>
                               <td className="px-5 py-4 font-semibold text-white">{sdata.detected_interval}</td>
-                              <td className={`px-5 py-4 font-semibold ${hasIrregular ? 'text-red-400' : 'text-green-400'}`}>
+                              <td className={`px-5 py-4 font-semibold ${hasIrregular ? 'text-accentPrimary' : 'text-green-400'}`}>
                                 {sdata.irregular_gaps_pct.toFixed(1)}%
                               </td>
-                              <td className={`px-5 py-4 font-semibold ${hasMissing ? 'text-red-400' : 'text-green-400'}`}>
+                              <td className={`px-5 py-4 font-semibold ${hasMissing ? 'text-accentPrimary' : 'text-green-400'}`}>
                                 {sdata.missing_timestamps_count} ({sdata.missing_timestamps_pct.toFixed(1)}%)
                               </td>
                               <td className="px-5 py-4 text-white font-mono">{sdata.duplicate_timestamps_count}</td>
@@ -660,8 +667,8 @@ export default function EDAStep({ sessionId, rawFilename, onEDASuccess }: EDASte
                     </table>
                   </div>
 
-                  <div className="text-xs text-gray-400 font-semibold mb-4 bg-black/20 p-3 rounded-lg border border-borderBg/50">
-                    Recommended merge interval: <span className="text-accentRed font-bold">{samplingReport.report.recommended_common_interval}</span>.
+                  <div className="text-xs text-gray-400 font-semibold mb-4 bg-black/20 p-3 rounded-lg border border-borderGlow/50">
+                    Recommended merge interval: <span className="text-accentPrimary font-bold">{samplingReport.report.recommended_common_interval}</span>.
                   </div>
 
                   {/* Quality Alerts */}
@@ -669,7 +676,7 @@ export default function EDAStep({ sessionId, rawFilename, onEDASuccess }: EDASte
                     const sdata = samplingSources[srcKey];
                     if (sdata.irregular_gaps_pct > 10.0 || sdata.missing_timestamps_pct > 5.0) {
                       return (
-                        <div key={srcKey} className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 flex items-start gap-3 mt-3">
+                        <div key={srcKey} className="bg-red-500/10 border border-red-500/30 rounded-3xl p-4 flex items-start gap-3 mt-3">
                           <AlertTriangle className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
                           <div>
                             <h4 className="text-red-500 font-bold text-xs">High Quality Flaw Alert - Source {srcKey}</h4>

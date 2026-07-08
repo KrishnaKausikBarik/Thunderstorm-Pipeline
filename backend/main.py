@@ -2,9 +2,12 @@ import os
 import json
 import asyncio
 import datetime
+import hashlib
+import shutil
+from diskcache import Cache
 from fastapi import FastAPI, HTTPException, Request, Query
-from fastapi.responses import StreamingResponse, FileResponse
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel, SecretStr
 from typing import List, Dict, Any, Optional
 from weather_summary import WeatherSummaryError, generate_weather_summary
@@ -32,6 +35,16 @@ from ingestion.smart_merge import smart_merge_dataframes
 app = FastAPI(title="Meteorological Pipeline API")
 
 VERCEL_BACKEND_PREFIX = "/_/backend"
+cache = Cache("./pipeline_cache")
+
+def get_cache_key(src_name, src_val, config):
+    key_data = {
+        "src": src_name,
+        "src_val": src_val,
+        "n": config.north, "s": config.south, "w": config.west, "e": config.east,
+        "y": config.years, "m": config.months, "d": config.daysRange, "int": config.interval
+    }
+    return hashlib.md5(json.dumps(key_data, sort_keys=True).encode()).hexdigest()
 
 
 @app.middleware("http")
@@ -180,41 +193,58 @@ async def ingest_data(config: IngestConfig):
             }
             
             for src_name, src_val in active_sources.items():
-                yield f"data: {json.dumps({'message': f'🌐 Engaging Ingestion Agent for source: {src_name}...', 'status': 'running'})}\n\n"
-                await asyncio.sleep(0.3)
-                
-                # Execute agent in background thread to keep FastAPI fully responsive
-                task = asyncio.create_task(asyncio.to_thread(
-                    agent.run,
-                    src_name,
-                    src_val,
-                    config.years,
-                    config.months,
-                    config.daysRange,
-                    bbox,
-                    config.interval,
-                    make_log_callback(src_name)
-                ))
-                
-                # Stream logs in real-time
-                while not task.done() or not queue.empty():
-                    try:
-                        log_item = await asyncio.wait_for(queue.get(), timeout=0.05)
-                        yield f"data: {json.dumps(log_item)}\n\n"
-                    except asyncio.TimeoutError:
-                        await asyncio.sleep(0.05)
-                
-                # Retrieve dataframe result
-                df_src = await task
-                
-                # Save source-specific CSV
+                cache_key = get_cache_key(src_name, src_val, config)
+                cached_path = cache.get(cache_key)
                 src_filename = f"source_{src_name.lower()}.csv"
                 src_path = os.path.join(session_dir, src_filename)
-                df_src.to_csv(src_path, index=False)
                 
-                dfs[src_name] = df_src
-                yield f"data: {json.dumps({'message': f'✓ Ingestion complete for {src_name}. Saved variables to local repository.', 'status': 'done'})}\n\n"
-                await asyncio.sleep(0.3)
+                if cached_path and os.path.exists(cached_path):
+                    yield f"data: {json.dumps({'message': f'⚡ CACHE HIT! Loading {src_name} instantly from cache...', 'status': 'running'})}\n\n"
+                    await asyncio.sleep(0.3)
+                    shutil.copy(cached_path, src_path)
+                    df_src = pd.read_csv(src_path)
+                    dfs[src_name] = df_src
+                    yield f"data: {json.dumps({'message': f'✓ {src_name} loaded from cache.', 'status': 'done'})}\n\n"
+                else:
+                    yield f"data: {json.dumps({'message': f'🌐 Engaging Ingestion Agent for source: {src_name}...', 'status': 'running'})}\n\n"
+                    await asyncio.sleep(0.3)
+                    
+                    # Execute agent in background thread to keep FastAPI fully responsive
+                    task = asyncio.create_task(asyncio.to_thread(
+                        agent.run,
+                        src_name,
+                        src_val,
+                        config.years,
+                        config.months,
+                        config.daysRange,
+                        bbox,
+                        config.interval,
+                        make_log_callback(src_name)
+                    ))
+                    
+                    # Stream logs in real-time
+                    while not task.done() or not queue.empty():
+                        try:
+                            log_item = await asyncio.wait_for(queue.get(), timeout=0.05)
+                            yield f"data: {json.dumps(log_item)}\n\n"
+                        except asyncio.TimeoutError:
+                            await asyncio.sleep(0.05)
+                    
+                    # Retrieve dataframe result
+                    df_src = await task
+                    
+                    # Save source-specific CSV
+                    df_src.to_csv(src_path, index=False)
+                    dfs[src_name] = df_src
+                    
+                    # Save to Cache
+                    cache_store_path = os.path.join("./pipeline_cache", f"{cache_key}.csv")
+                    os.makedirs("./pipeline_cache", exist_ok=True)
+                    df_src.to_csv(cache_store_path, index=False)
+                    cache.set(cache_key, cache_store_path, expire=86400) # 24 hrs
+                    
+                    yield f"data: {json.dumps({'message': f'✓ Ingestion complete for {src_name}. Saved to cache.', 'status': 'done'})}\n\n"
+                    await asyncio.sleep(0.3)
                 
             # 2. Sampling Analyzer Phase
             yield f"data: {json.dumps({'message': '🔬 Initiating high-resolution temporal sampling rate audit...', 'status': 'running'})}\n\n"
@@ -1054,19 +1084,17 @@ async def dim_finalize(config: DimFinalizeConfig):
             "ai_summary": ai_summary,
             "ai_summary_error": ai_summary_error,
             "stats": {
-                "shape": list(final_df.shape),
-                "total_rows": len(final_df),
-                "total_columns": len(final_df.columns)
+                "rows": len(final_df),
+                "columns": len(final_df.columns),
+                "features_retained": len(config.retained_features),
+                "features_dropped": len(config.dropped_features)
             }
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error finalizing features: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
-# -----------------
-# PREVIEW & DOWNLOAD
-# -----------------
 @app.get("/api/preview/{filename}")
-async def preview_file(filename: str, session_id: str = Query(...)):
+async def preview_data(filename: str, session_id: str = Query(...)):
     session_dir = get_session_dir(session_id)
     file_path = os.path.join(session_dir, filename)
     
@@ -1074,9 +1102,12 @@ async def preview_file(filename: str, session_id: str = Query(...)):
         raise HTTPException(status_code=404, detail="File not found")
         
     try:
-        df = pd.read_csv(file_path, nrows=50)
-        # Convert NaN to None for JSON compliance
-        df = df.replace({np.nan: None})
+        df = pd.read_csv(file_path, nrows=10)
+        for col in df.columns:
+            if pd.api.types.is_datetime64_any_dtype(df[col]):
+                df[col] = df[col].astype(str)
+                
+        df = df.fillna("")
         
         columns = list(df.columns)
         rows = df.values.tolist()
@@ -1097,14 +1128,12 @@ async def download_file(filename: str, session_id: str = Query(...)):
     if not os.path.exists(file_path):
         raise HTTPException(status_code=404, detail="File not found")
         
-    # Check if html or csv
     media_type = "text/csv"
     if filename.endswith(".html"):
         media_type = "text/html"
         
     return FileResponse(path=file_path, filename=filename, media_type=media_type)
 
-# Start server script helper
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

@@ -1,9 +1,11 @@
-import { useState } from 'react';
-import { Play, Download, Eye, EyeOff, Plus, Minus, ShieldAlert } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { Play, Download, Eye, EyeOff, Plus, Minus, ShieldAlert, Search, Loader2, MapPin } from 'lucide-react';
 import { API_BASE, getDownloadUrl } from '../utils/api';
 import TerminalLog from './TerminalLog';
 import PreviewTable from './PreviewTable';
 import HelpTooltip from './HelpTooltip';
+import InlineTooltip from './InlineTooltip';
+import MapSelector from './MapSelector';
 import type { IngestStats } from '../types';
 
 interface IngestionStepProps {
@@ -34,6 +36,113 @@ export default function IngestionStep({ sessionId, onIngestSuccess }: IngestionS
   const [south, setSouth] = useState(17.00);
   const [west, setWest] = useState(81.00);
   const [east, setEast] = useState(88.00);
+
+  // Search state
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isSearching, setIsSearching] = useState(false);
+  const [suggestions, setSuggestions] = useState<any[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const searchContainerRef = useRef<HTMLDivElement>(null);
+
+  // Geolocation on mount
+  useEffect(() => {
+    if ("geolocation" in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        async (position) => {
+          const lat = position.coords.latitude;
+          const lon = position.coords.longitude;
+          
+          const latSpan = Math.abs(north - south);
+          const lngSpan = Math.abs(east - west);
+          const halfLat = latSpan / 2;
+          const halfLng = lngSpan / 2;
+          
+          setNorth(+(lat + halfLat).toFixed(2));
+          setSouth(+(lat - halfLat).toFixed(2));
+          setEast(+(lon + halfLng).toFixed(2));
+          setWest(+(lon - halfLng).toFixed(2));
+
+          // Reverse geocode to show the location name in the search bar
+          try {
+            const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`);
+            const data = await res.json();
+            if (data && data.display_name) {
+              // Extract a shorter name if possible (city, state) or use display_name
+              const address = data.address;
+              const shortName = address?.city || address?.town || address?.county || address?.state || data.display_name.split(',')[0];
+              setSearchQuery(shortName);
+            }
+          } catch (err) {
+            console.error("Reverse geocoding failed", err);
+          }
+        },
+        (err) => console.log("Geolocation permission denied or unavailable.", err)
+      );
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Run only once on mount
+
+  // Debounced search suggestions
+  useEffect(() => {
+    const timer = setTimeout(async () => {
+      if (searchQuery.trim().length > 2) {
+        try {
+          const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchQuery)}&limit=5`);
+          const data = await res.json();
+          setSuggestions(data || []);
+          setShowSuggestions(true);
+        } catch (err) {
+          console.error("Autocomplete failed", err);
+        }
+      } else {
+        setSuggestions([]);
+        setShowSuggestions(false);
+      }
+    }, 600); // 600ms debounce
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  // Click outside to close suggestions
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (searchContainerRef.current && !searchContainerRef.current.contains(event.target as Node)) {
+        setShowSuggestions(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const handleSearch = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!searchQuery.trim()) return;
+    
+    setIsSearching(true);
+    try {
+      const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchQuery)}`);
+      const data = await res.json();
+      
+      if (data && data.length > 0) {
+        const lat = parseFloat(data[0].lat);
+        const lon = parseFloat(data[0].lon);
+        
+        // Maintain the current crop box size, just move the center
+        const latSpan = Math.abs(north - south);
+        const lngSpan = Math.abs(east - west);
+        const halfLat = latSpan / 2;
+        const halfLng = lngSpan / 2;
+        
+        setNorth(+(lat + halfLat).toFixed(2));
+        setSouth(+(lat - halfLat).toFixed(2));
+        setEast(+(lon + halfLng).toFixed(2));
+        setWest(+(lon - halfLng).toFixed(2));
+      }
+    } catch (err) {
+      console.error("Geocoding failed", err);
+    } finally {
+      setIsSearching(false);
+    }
+  };
 
   // Time Parameters state
   const [selectedYears, setSelectedYears] = useState<number[]>([2025]);
@@ -81,6 +190,21 @@ export default function IngestionStep({ sessionId, onIngestSuccess }: IngestionS
   const [targetMergeInterval, setTargetMergeInterval] = useState<string>('Daily');
   const [variableAggRules, setVariableAggRules] = useState<Record<string, string>>({});
   const [isMerging, setIsMerging] = useState(false);
+
+  const handleDemoClick = () => {
+    // Balasore, Odisha Demo
+    setNorth(22.0);
+    setSouth(21.0);
+    setWest(86.5);
+    setEast(87.5);
+    setSelectedYears([2024]);
+    setSelectedMonths([5]); // May
+    setStartDay(1);
+    setEndDay(15);
+    setEra5Enabled(true);
+    setEra5SelectedVars(['2m_temperature', 'total_precipitation', 'convective_available_potential_energy']);
+  };
+
 
   // Check if pressure levels are needed
   const isPressureLevelNeeded = () => {
@@ -291,60 +415,137 @@ export default function IngestionStep({ sessionId, onIngestSuccess }: IngestionS
         description="This step downloads raw spatial meteorological datasets (NetCDF format) based on your coordinates and timeframe, and automatically maps/co-registers them. If no API keys are provided, the system falls back to a high-fidelity synthetic simulation. Individual source datasets are converted to standard CSVs and outer-joined on spatial coordinates and hourly timestamps, filling missing values with NaNs."
       />
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 lg:gap-8">
+      
+      <div className="mb-6 flex justify-end">
+        <button 
+          onClick={handleDemoClick}
+          className="bg-accentPrimary/20 border border-accentPrimary/50 text-accentPrimary hover:bg-accentPrimary hover:text-white px-4 py-2 rounded-lg font-bold text-sm shadow-neon-primary transition-all flex items-center gap-2"
+        >
+          ✨ Try a Demo (Balasore)
+        </button>
+      </div>
+
+      <div className="flex flex-col gap-5 lg:gap-8">
         
         {/* LEFT PANEL: Bounding Coordinates */}
-        <div className="bg-cardBg border border-borderBg p-4 sm:p-6 rounded-2xl flex flex-col justify-between shadow-lg">
+        <div className="glass-panel p-4 sm:p-6 rounded-lg flex flex-col justify-between shadow-glass w-full">
           <div>
-            <h2 className="text-lg font-bold text-white mb-4 border-b border-borderBg pb-2">Bounding Coordinates</h2>
+            <h2 className="text-lg font-bold text-white mb-4 border-b border-borderGlow pb-2">Bounding Coordinates</h2>
             <p className="text-xs text-gray-400 mb-6">Specify the spatial envelope for gridded meteorological mapping.</p>
             
-            <div className="space-y-4 max-w-[240px] mx-auto">
-              {/* North */}
-              <div className="flex flex-col items-center">
-                <label className="text-xs text-gray-400 font-bold uppercase mb-1">North Limit (°N)</label>
-                <div className="flex items-center bg-darkBg border border-borderBg rounded-lg p-1">
-                  <button onClick={() => setNorth(n => +(n - 0.25).toFixed(2))} className="p-1 hover:text-accentRed"><Minus className="w-4 h-4" /></button>
-                  <input type="number" step="0.25" value={north} onChange={e => setNorth(+e.target.value)} className="w-16 bg-transparent text-center text-sm font-bold focus:outline-none" />
-                  <button onClick={() => setNorth(n => +(n + 0.25).toFixed(2))} className="p-1 hover:text-accentRed"><Plus className="w-4 h-4" /></button>
+            {/* Search Bar - Full Width */}
+            <div ref={searchContainerRef} className="relative z-[20] w-full mb-5">
+              <form onSubmit={handleSearch} className="flex gap-2 w-full">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <input 
+                    type="text" 
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    onFocus={() => { if (suggestions.length > 0) setShowSuggestions(true); }}
+                    placeholder="Search city (e.g., Balasore)"
+                    className="w-full bg-darkBg text-white border border-borderGlow rounded-lg text-sm py-2.5 pl-10 pr-4 outline-none transition-colors focus:border-accentPrimary"
+                  />
+                  
+                  {/* Suggestions Dropdown */}
+                  {showSuggestions && suggestions.length > 0 && (
+                    <div className="absolute top-full left-0 right-0 mt-2 bg-darkBg border border-borderGlow rounded-lg overflow-hidden shadow-2xl flex flex-col z-[100]">
+                      {suggestions.map((s, i) => (
+                        <button
+                          key={i}
+                          type="button"
+                          className="flex items-center gap-3 px-4 py-3 text-left hover:bg-white/5 transition-colors border-b border-borderGlow/50 last:border-0"
+                          onClick={() => {
+                            setSearchQuery(s.display_name);
+                            setShowSuggestions(false);
+                            const lat = parseFloat(s.lat);
+                            const lon = parseFloat(s.lon);
+                            const latSpan = Math.abs(north - south);
+                            const lngSpan = Math.abs(east - west);
+                            setNorth(+(lat + latSpan/2).toFixed(2));
+                            setSouth(+(lat - latSpan/2).toFixed(2));
+                            setEast(+(lon + lngSpan/2).toFixed(2));
+                            setWest(+(lon - lngSpan/2).toFixed(2));
+                          }}
+                        >
+                          <MapPin className="w-4 h-4 text-accentPrimary shrink-0" />
+                          <span className="text-sm text-gray-200 line-clamp-1">{s.display_name}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
+                <button 
+                  type="submit" 
+                  disabled={isSearching}
+                  className="bg-accentPrimary hover:bg-accentPrimary/90 text-white text-sm font-bold px-6 py-2.5 rounded-lg flex items-center justify-center min-w-[100px] transition-colors shadow-neon-primary shrink-0"
+                >
+                  {isSearching ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Search'}
+                </button>
+              </form>
+            </div>
+            
+            <div className="flex flex-col lg:flex-row gap-8 items-center lg:items-stretch mb-6">
+              
+              <div className="w-full lg:flex-1 h-[250px]">
+                <MapSelector 
+                  north={north} 
+                  south={south} 
+                  east={east} 
+                  west={west} 
+                  onBoundsChange={(n, s, e, w) => {
+                    setNorth(n); setSouth(s); setEast(e); setWest(w);
+                  }} 
+                />
               </div>
 
-              <div className="flex justify-between gap-3 sm:gap-4">
-                {/* West */}
+              <div className="space-y-4 w-full max-w-[240px] lg:shrink-0 flex flex-col justify-center">
+                {/* North */}
                 <div className="flex flex-col items-center">
-                  <label className="text-xs text-gray-400 font-bold uppercase mb-1">West Limit (°E)</label>
-                  <div className="flex items-center bg-darkBg border border-borderBg rounded-lg p-1">
-                    <button onClick={() => setWest(w => +(w - 0.25).toFixed(2))} className="p-1 hover:text-accentRed"><Minus className="w-4 h-4" /></button>
-                    <input type="number" step="0.25" value={west} onChange={e => setWest(+e.target.value)} className="w-16 bg-transparent text-center text-sm font-bold focus:outline-none" />
-                    <button onClick={() => setWest(w => +(w + 0.25).toFixed(2))} className="p-1 hover:text-accentRed"><Plus className="w-4 h-4" /></button>
+                  <label className="text-xs text-gray-400 font-bold uppercase mb-1">North Limit (°N)</label>
+                  <div className="flex items-center bg-darkBg border border-borderGlow rounded-lg p-1">
+                    <button onClick={() => setNorth(n => +(n - 0.25).toFixed(2))} className="p-1 hover:text-accentPrimary"><Minus className="w-4 h-4" /></button>
+                    <input type="number" step="0.25" value={north} onChange={e => setNorth(+e.target.value)} className="w-16 bg-transparent text-center text-sm font-bold focus:outline-none" />
+                    <button onClick={() => setNorth(n => +(n + 0.25).toFixed(2))} className="p-1 hover:text-accentPrimary"><Plus className="w-4 h-4" /></button>
                   </div>
                 </div>
 
-                {/* East */}
-                <div className="flex flex-col items-center">
-                  <label className="text-xs text-gray-400 font-bold uppercase mb-1">East Limit (°E)</label>
-                  <div className="flex items-center bg-darkBg border border-borderBg rounded-lg p-1">
-                    <button onClick={() => setEast(e => +(e - 0.25).toFixed(2))} className="p-1 hover:text-accentRed"><Minus className="w-4 h-4" /></button>
-                    <input type="number" step="0.25" value={east} onChange={e => setEast(+e.target.value)} className="w-16 bg-transparent text-center text-sm font-bold focus:outline-none" />
-                    <button onClick={() => setEast(e => +(e + 0.25).toFixed(2))} className="p-1 hover:text-accentRed"><Plus className="w-4 h-4" /></button>
+                <div className="flex justify-between gap-3 sm:gap-4">
+                  {/* West */}
+                  <div className="flex flex-col items-center">
+                    <label className="text-xs text-gray-400 font-bold uppercase mb-1">West Limit (°E)</label>
+                    <div className="flex items-center bg-darkBg border border-borderGlow rounded-lg p-1">
+                      <button onClick={() => setWest(w => +(w - 0.25).toFixed(2))} className="p-1 hover:text-accentPrimary"><Minus className="w-4 h-4" /></button>
+                      <input type="number" step="0.25" value={west} onChange={e => setWest(+e.target.value)} className="w-16 bg-transparent text-center text-sm font-bold focus:outline-none" />
+                      <button onClick={() => setWest(w => +(w + 0.25).toFixed(2))} className="p-1 hover:text-accentPrimary"><Plus className="w-4 h-4" /></button>
+                    </div>
+                  </div>
+
+                  {/* East */}
+                  <div className="flex flex-col items-center">
+                    <label className="text-xs text-gray-400 font-bold uppercase mb-1">East Limit (°E)</label>
+                    <div className="flex items-center bg-darkBg border border-borderGlow rounded-lg p-1">
+                      <button onClick={() => setEast(e => +(e - 0.25).toFixed(2))} className="p-1 hover:text-accentPrimary"><Minus className="w-4 h-4" /></button>
+                      <input type="number" step="0.25" value={east} onChange={e => setEast(+e.target.value)} className="w-16 bg-transparent text-center text-sm font-bold focus:outline-none" />
+                      <button onClick={() => setEast(e => +(e + 0.25).toFixed(2))} className="p-1 hover:text-accentPrimary"><Plus className="w-4 h-4" /></button>
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              {/* South */}
-              <div className="flex flex-col items-center">
-                <label className="text-xs text-gray-400 font-bold uppercase mb-1">South Limit (°N)</label>
-                <div className="flex items-center bg-darkBg border border-borderBg rounded-lg p-1">
-                  <button onClick={() => setSouth(s => +(s - 0.25).toFixed(2))} className="p-1 hover:text-accentRed"><Minus className="w-4 h-4" /></button>
-                  <input type="number" step="0.25" value={south} onChange={e => setSouth(+e.target.value)} className="w-16 bg-transparent text-center text-sm font-bold focus:outline-none" />
-                  <button onClick={() => setSouth(s => +(s + 0.25).toFixed(2))} className="p-1 hover:text-accentRed"><Plus className="w-4 h-4" /></button>
+                {/* South */}
+                <div className="flex flex-col items-center">
+                  <label className="text-xs text-gray-400 font-bold uppercase mb-1">South Limit (°N)</label>
+                  <div className="flex items-center bg-darkBg border border-borderGlow rounded-lg p-1">
+                    <button onClick={() => setSouth(s => +(s - 0.25).toFixed(2))} className="p-1 hover:text-accentPrimary"><Minus className="w-4 h-4" /></button>
+                    <input type="number" step="0.25" value={south} onChange={e => setSouth(+e.target.value)} className="w-16 bg-transparent text-center text-sm font-bold focus:outline-none" />
+                    <button onClick={() => setSouth(s => +(s + 0.25).toFixed(2))} className="p-1 hover:text-accentPrimary"><Plus className="w-4 h-4" /></button>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
 
-          <div className="mt-8 border-t border-borderBg pt-4 text-center">
+          <div className="mt-8 border-t border-borderGlow pt-4 text-center">
             <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wider block">Target Coordinates Envelope</span>
             <span className="text-xs text-gray-300 font-mono mt-1 block">
               [{south.toFixed(2)}°N to {north.toFixed(2)}°N] × [{west.toFixed(2)}°E to {east.toFixed(2)}°E]
@@ -353,25 +554,25 @@ export default function IngestionStep({ sessionId, onIngestSuccess }: IngestionS
         </div>
 
         {/* RIGHT PANEL: Time Range & Parameters */}
-        <div className="bg-cardBg border border-borderBg p-4 sm:p-6 rounded-2xl shadow-lg lg:col-span-2 min-w-0">
-          <h2 className="text-lg font-bold text-white mb-4 border-b border-borderBg pb-2">Temporal Window & Resolution</h2>
+        <div className="glass-panel p-4 sm:p-6 rounded-lg shadow-glass w-full min-w-0">
+          <h2 className="text-lg font-bold text-white mb-4 border-b border-borderGlow pb-2">Temporal Window & Resolution</h2>
           <p className="text-xs text-gray-400 mb-6">Select historical segments and temporal frequencies to ingest.</p>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Year Multi-Select tags */}
             <div>
               <label className="text-xs text-gray-400 font-bold uppercase block mb-2">Select Years to Ingest</label>
-              <div className="flex flex-wrap gap-1.5 p-3 bg-darkBg border border-borderBg rounded-xl max-h-[140px] overflow-y-auto">
+              <div className="flex flex-wrap gap-1.5 p-3 bg-darkBg border border-borderGlow rounded-lg max-h-[140px] overflow-y-auto custom-scrollbar">
                 {YEARS.map(yr => {
                   const active = selectedYears.includes(yr);
                   return (
                     <button
                       key={yr}
                       onClick={() => setSelectedYears(prev => active ? prev.filter(y => y !== yr) : [...prev, yr])}
-                      className={`px-2 py-1 rounded text-xs font-semibold border transition-all ${
+                      className={`px-2 py-1 rounded-lg text-xs font-semibold border transition-all ${
                         active 
-                          ? 'bg-accentRed border-accentRed text-white font-bold' 
-                          : 'bg-cardBg border-borderBg text-gray-400 hover:border-gray-500'
+                          ? 'bg-accentPrimary border-accentPrimary text-white font-bold' 
+                          : 'glass-panel border-borderGlow text-gray-400 hover:border-gray-500'
                       }`}
                     >
                       {yr}
@@ -384,17 +585,17 @@ export default function IngestionStep({ sessionId, onIngestSuccess }: IngestionS
             {/* Month Multi-Select tags */}
             <div>
               <label className="text-xs text-gray-400 font-bold uppercase block mb-2">Select Months</label>
-              <div className="flex flex-wrap gap-1.5 p-3 bg-darkBg border border-borderBg rounded-xl max-h-[140px] overflow-y-auto">
+              <div className="flex flex-wrap gap-1.5 p-3 bg-darkBg border border-borderGlow rounded-lg max-h-[140px] overflow-y-auto custom-scrollbar">
                 {MONTHS.map(m => {
                   const active = selectedMonths.includes(m.val);
                   return (
                     <button
                       key={m.val}
                       onClick={() => setSelectedMonths(prev => active ? prev.filter(v => v !== m.val) : [...prev, m.val])}
-                      className={`px-2.5 py-1 rounded text-xs font-semibold border transition-all ${
+                      className={`px-2.5 py-1 rounded-lg text-xs font-semibold border transition-all ${
                         active 
-                          ? 'bg-accentRed border-accentRed text-white font-bold' 
-                          : 'bg-cardBg border-borderBg text-gray-400 hover:border-gray-500'
+                          ? 'bg-accentPrimary border-accentPrimary text-white font-bold' 
+                          : 'glass-panel border-borderGlow text-gray-400 hover:border-gray-500'
                       }`}
                     >
                       {m.name.slice(0, 3)}
@@ -405,17 +606,17 @@ export default function IngestionStep({ sessionId, onIngestSuccess }: IngestionS
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6 pt-4 border-t border-borderBg/50">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6 pt-4 border-t border-borderGlow/50">
             {/* Day range controller */}
             <div>
               <label className="text-xs text-gray-400 font-bold uppercase block mb-2">Target Days Range of Month</label>
-              <div className="flex items-center gap-4 bg-darkBg border border-borderBg rounded-xl p-3">
+              <div className="flex items-center gap-4 bg-darkBg border border-borderGlow rounded-lg p-3">
                 <div className="flex-1">
                   <div className="text-[10px] text-gray-500 font-bold mb-1">MIN DAY: {startDay}</div>
                   <input 
                     type="range" min="1" max="31" value={startDay} 
                     onChange={e => setStartDay(Math.min(endDay, +e.target.value))}
-                    className="w-full accent-accentRed"
+                    className="w-full accent-accentPrimary"
                   />
                 </div>
                 <div className="flex-1">
@@ -423,7 +624,7 @@ export default function IngestionStep({ sessionId, onIngestSuccess }: IngestionS
                   <input 
                     type="range" min="1" max="31" value={endDay} 
                     onChange={e => setEndDay(Math.max(startDay, +e.target.value))}
-                    className="w-full accent-accentRed"
+                    className="w-full accent-accentPrimary"
                   />
                 </div>
               </div>
@@ -431,47 +632,50 @@ export default function IngestionStep({ sessionId, onIngestSuccess }: IngestionS
 
             {/* Hour Interval Dropdown */}
             <div>
-              <label className="text-xs text-gray-400 font-bold uppercase block mb-2">Temporal Hour Interval</label>
-              <select
-                value={interval}
-                onChange={e => setIntervalVal(e.target.value)}
-                className="w-full bg-darkBg border border-borderBg text-gray-200 rounded-xl p-3 text-sm focus:outline-none focus:border-accentRed font-semibold"
-              >
-                <option value="1-hourly">1-hourly (High Resolution)</option>
-                <option value="3-hourly">3-hourly</option>
-                <option value="6-hourly">6-hourly</option>
-                <option value="12-hourly">12-hourly</option>
-                <option value="Daily">Daily</option>
-              </select>
-            </div>
+  <label className="text-xs text-gray-400 font-bold uppercase block mb-2">Temporal Hour Interval</label>
+  <select
+    value={interval}
+    onChange={e => setIntervalVal(e.target.value)}
+    className="w-full bg-darkBg border border-borderGlow text-gray-200 rounded-lg p-3 pr-8 text-sm focus:outline-none focus:border-accentPrimary font-semibold"
+  >
+    <option value="1-hourly">1-hourly (High Resolution)</option>
+    <option value="3-hourly">3-hourly</option>
+    <option value="6-hourly">6-hourly</option>
+    <option value="12-hourly">12-hourly</option>
+    <option value="Daily">Daily</option>
+  </select>
+</div>
           </div>
         </div>
 
       </div>
 
       {/* SELECT DATA SOURCES */}
-      <div className="bg-cardBg border border-borderBg p-6 rounded-2xl mt-8 shadow-lg">
-        <h2 className="text-lg font-bold text-white mb-6 border-b border-borderBg pb-2">Select Data Sources</h2>
+      <div className="glass-panel p-6 rounded-lg mt-8 shadow-glass">
+        <h2 className="text-lg font-bold text-white mb-6 border-b border-borderGlow pb-2">Select Data Sources</h2>
         
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 lg:gap-6">
           
           {/* ERA5 CARD */}
-          <div className={`border rounded-xl p-5 transition-all duration-300 ${
-            era5Enabled ? 'bg-black/10 border-accentRed shadow-md' : 'bg-darkBg border-borderBg/50 opacity-60'
+          <div className={`border rounded-lg p-5 transition-all duration-300 ${
+            era5Enabled ? 'bg-black/10 border-accentPrimary shadow-md' : 'bg-darkBg border-borderGlow/50 opacity-60'
           }`}>
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="font-extrabold text-sm text-white">ERA5 (ECMWF CDS)</h3>
+                <h3 className="font-extrabold text-sm text-white flex items-center">
+                  ERA5 (ECMWF CDS)
+                  <InlineTooltip text="A highly accurate global climate dataset provided by the European Centre for Medium-Range Weather Forecasts." />
+                </h3>
                 <span className="text-[10px] text-gray-400">Reanalysis Gridded Climate Model</span>
               </div>
               <input 
                 type="checkbox" checked={era5Enabled} onChange={e => setEra5Enabled(e.target.checked)}
-                className="w-5 h-5 accent-accentRed cursor-pointer"
+                className="w-5 h-5 accent-accentPrimary cursor-pointer"
               />
             </div>
 
             {era5Enabled && (
-              <div className="mt-4 space-y-4 pt-4 border-t border-borderBg/40">
+              <div className="mt-4 space-y-4 pt-4 border-t border-borderGlow/40">
                 {/* API key */}
                 <div>
                   <label className="text-[10px] text-gray-400 font-bold block mb-1">API KEY</label>
@@ -479,7 +683,7 @@ export default function IngestionStep({ sessionId, onIngestSuccess }: IngestionS
                     <input 
                       type={showEra5Key ? 'text' : 'password'} value={era5Key} onChange={e => setEra5Key(e.target.value)}
                       placeholder="• • • • • • • • • • • •"
-                      className="w-full bg-darkBg border border-borderBg rounded p-1.5 text-xs focus:outline-none focus:border-accentRed pr-8"
+                      className="w-full bg-darkBg border border-borderGlow rounded-lg p-1.5 text-xs focus:outline-none focus:border-accentPrimary pr-8"
                     />
                     <button 
                       onClick={() => setShowEra5Key(!showEra5Key)} 
@@ -495,22 +699,22 @@ export default function IngestionStep({ sessionId, onIngestSuccess }: IngestionS
                   <label className="text-[10px] text-gray-400 font-bold block mb-1">CDS URL</label>
                   <input 
                     type="text" value={era5Url} onChange={e => setEra5Url(e.target.value)}
-                    className="w-full bg-darkBg border border-borderBg rounded p-1.5 text-xs focus:outline-none font-mono"
+                    className="w-full bg-darkBg border border-borderGlow rounded-lg p-1.5 text-xs focus:outline-none font-mono"
                   />
                 </div>
 
                 {/* Variables Selection */}
                 <div>
                   <label className="text-[10px] text-gray-400 font-bold block mb-2">VARIABLES</label>
-                  <div className="flex flex-wrap gap-1 p-2 bg-darkBg border border-borderBg rounded max-h-[100px] overflow-y-auto">
+                  <div className="flex flex-wrap gap-1 p-2 bg-darkBg border border-borderGlow rounded-lg max-h-[100px] overflow-y-auto custom-scrollbar">
                     {ERA5_VARS.map(v => {
                       const active = era5SelectedVars.includes(v);
                       return (
                         <button
                           key={v}
                           onClick={() => setEra5SelectedVars(prev => active ? prev.filter(item => item !== v) : [...prev, v])}
-                          className={`px-1.5 py-0.5 rounded text-[9px] font-bold border ${
-                            active ? 'bg-accentRed/30 border-accentRed text-white' : 'bg-cardBg border-borderBg text-gray-400'
+                          className={`px-1.5 py-0.5 rounded-lg text-[9px] font-bold border ${
+                            active ? 'bg-accentPrimary/30 border-accentPrimary text-white' : 'glass-panel border-borderGlow text-gray-400'
                           }`}
                         >
                           {v}
@@ -531,8 +735,8 @@ export default function IngestionStep({ sessionId, onIngestSuccess }: IngestionS
                           <button
                             key={pl}
                             onClick={() => setEra5SelectedPressures(prev => active ? prev.filter(v => v !== pl) : [...prev, pl])}
-                            className={`flex-1 py-1 rounded text-2xs font-bold border transition-colors ${
-                              active ? 'bg-accentRed border-accentRed text-white' : 'bg-darkBg border-borderBg text-gray-400 hover:border-gray-500'
+                            className={`flex-1 py-1 rounded-lg text-2xs font-bold border transition-colors ${
+                              active ? 'bg-accentPrimary border-accentPrimary text-white' : 'bg-darkBg border-borderGlow text-gray-400 hover:border-gray-500'
                             }`}
                           >
                             {pl}
@@ -552,7 +756,7 @@ export default function IngestionStep({ sessionId, onIngestSuccess }: IngestionS
                         <input 
                           type="radio" name="era5_type" value={type} checked={era5DatasetType === type}
                           onChange={() => setEra5DatasetType(type)}
-                          className="accent-accentRed"
+                          className="accent-accentPrimary"
                         />
                         <span>{type}</span>
                       </label>
@@ -565,8 +769,8 @@ export default function IngestionStep({ sessionId, onIngestSuccess }: IngestionS
           </div>
 
           {/* IMD CARD */}
-          <div className={`border rounded-xl p-5 transition-all duration-300 ${
-            imdEnabled ? 'bg-black/10 border-accentRed shadow-md' : 'bg-darkBg border-borderBg/50 opacity-60'
+          <div className={`border rounded-lg p-5 transition-all duration-300 ${
+            imdEnabled ? 'bg-black/10 border-accentPrimary shadow-md' : 'bg-darkBg border-borderGlow/50 opacity-60'
           }`}>
             <div className="flex items-center justify-between">
               <div>
@@ -575,12 +779,12 @@ export default function IngestionStep({ sessionId, onIngestSuccess }: IngestionS
               </div>
               <input 
                 type="checkbox" checked={imdEnabled} onChange={e => setImdEnabled(e.target.checked)}
-                className="w-5 h-5 accent-accentRed cursor-pointer"
+                className="w-5 h-5 accent-accentPrimary cursor-pointer"
               />
             </div>
 
             {imdEnabled && (
-              <div className="mt-4 space-y-4 pt-4 border-t border-borderBg/40">
+              <div className="mt-4 space-y-4 pt-4 border-t border-borderGlow/40">
                 {/* API Key */}
                 <div>
                   <label className="text-[10px] text-gray-400 font-bold block mb-1">API KEY</label>
@@ -588,7 +792,7 @@ export default function IngestionStep({ sessionId, onIngestSuccess }: IngestionS
                     <input 
                       type={showImdKey ? 'text' : 'password'} value={imdKey} onChange={e => setImdKey(e.target.value)}
                       placeholder="• • • • • • • • • • • •"
-                      className="w-full bg-darkBg border border-borderBg rounded p-1.5 text-xs focus:outline-none focus:border-accentRed pr-8"
+                      className="w-full bg-darkBg border border-borderGlow rounded-lg p-1.5 text-xs focus:outline-none focus:border-accentPrimary pr-8"
                     />
                     <button onClick={() => setShowImdKey(!showImdKey)} className="absolute right-2 top-2 text-gray-500 hover:text-white">
                       {showImdKey ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
@@ -607,7 +811,7 @@ export default function IngestionStep({ sessionId, onIngestSuccess }: IngestionS
                           <input 
                             type="checkbox" checked={active}
                             onChange={() => setImdDataTypes(prev => active ? prev.filter(i => i !== dt) : [...prev, dt])}
-                            className="accent-accentRed"
+                            className="accent-accentPrimary"
                           />
                           <span>{dt}</span>
                         </label>
@@ -621,7 +825,7 @@ export default function IngestionStep({ sessionId, onIngestSuccess }: IngestionS
                   <label className="text-[10px] text-gray-400 font-bold block mb-1">SPATIAL RESOLUTION</label>
                   <select 
                     value={imdResolution} onChange={e => setImdResolution(e.target.value)}
-                    className="w-full bg-darkBg border border-borderBg rounded p-1.5 text-xs focus:outline-none"
+                    className="w-full bg-darkBg border border-borderGlow rounded-lg p-1.5 text-xs focus:outline-none"
                   >
                     <option value="0.25°">0.25°</option>
                     <option value="0.50°">0.50°</option>
@@ -633,8 +837,8 @@ export default function IngestionStep({ sessionId, onIngestSuccess }: IngestionS
           </div>
 
           {/* NASA EARTHDATA CARD */}
-          <div className={`border rounded-xl p-5 transition-all duration-300 ${
-            nasaEnabled ? 'bg-black/10 border-accentRed shadow-md' : 'bg-darkBg border-borderBg/50 opacity-60'
+          <div className={`border rounded-lg p-5 transition-all duration-300 ${
+            nasaEnabled ? 'bg-black/10 border-accentPrimary shadow-md' : 'bg-darkBg border-borderGlow/50 opacity-60'
           }`}>
             <div className="flex items-center justify-between">
               <div>
@@ -643,19 +847,19 @@ export default function IngestionStep({ sessionId, onIngestSuccess }: IngestionS
               </div>
               <input 
                 type="checkbox" checked={nasaEnabled} onChange={e => setNasaEnabled(e.target.checked)}
-                className="w-5 h-5 accent-accentRed cursor-pointer"
+                className="w-5 h-5 accent-accentPrimary cursor-pointer"
               />
             </div>
 
             {nasaEnabled && (
-              <div className="mt-4 space-y-4 pt-4 border-t border-borderBg/40">
+              <div className="mt-4 space-y-4 pt-4 border-t border-borderGlow/40">
                 {/* Username */}
                 <div>
                   <label className="text-[10px] text-gray-400 font-bold block mb-1">EARTHDATA USERNAME</label>
                   <input 
                     type="text" value={nasaUser} onChange={e => setNasaUser(e.target.value)}
                     placeholder="Username"
-                    className="w-full bg-darkBg border border-borderBg rounded p-1.5 text-xs focus:outline-none focus:border-accentRed"
+                    className="w-full bg-darkBg border border-borderGlow rounded-lg p-1.5 text-xs focus:outline-none focus:border-accentPrimary"
                   />
                 </div>
 
@@ -666,7 +870,7 @@ export default function IngestionStep({ sessionId, onIngestSuccess }: IngestionS
                     <input 
                       type={showNasaPass ? 'text' : 'password'} value={nasaPass} onChange={e => setNasaPass(e.target.value)}
                       placeholder="Password"
-                      className="w-full bg-darkBg border border-borderBg rounded p-1.5 text-xs focus:outline-none focus:border-accentRed pr-8"
+                      className="w-full bg-darkBg border border-borderGlow rounded-lg p-1.5 text-xs focus:outline-none focus:border-accentPrimary pr-8"
                     />
                     <button onClick={() => setShowNasaPass(!showNasaPass)} className="absolute right-2 top-2 text-gray-500 hover:text-white">
                       {showNasaPass ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
@@ -685,7 +889,7 @@ export default function IngestionStep({ sessionId, onIngestSuccess }: IngestionS
                           <input 
                             type="checkbox" checked={active}
                             onChange={() => setNasaDatasets(prev => active ? prev.filter(i => i !== ds) : [...prev, ds])}
-                            className="accent-accentRed"
+                            className="accent-accentPrimary"
                           />
                           <span>{ds}</span>
                         </label>
@@ -698,8 +902,8 @@ export default function IngestionStep({ sessionId, onIngestSuccess }: IngestionS
           </div>
 
           {/* CUSTOM DATA SOURCE CARD */}
-          <div className={`border rounded-xl p-5 transition-all duration-300 ${
-            customEnabled ? 'bg-black/10 border-accentRed shadow-md' : 'bg-darkBg border-borderBg/50 opacity-60'
+          <div className={`border rounded-lg p-5 transition-all duration-300 ${
+            customEnabled ? 'bg-black/10 border-accentPrimary shadow-md' : 'bg-darkBg border-borderGlow/50 opacity-60'
           }`}>
             <div className="flex items-center justify-between">
               <div>
@@ -708,18 +912,18 @@ export default function IngestionStep({ sessionId, onIngestSuccess }: IngestionS
               </div>
               <input 
                 type="checkbox" checked={customEnabled} onChange={e => setCustomEnabled(e.target.checked)}
-                className="w-5 h-5 accent-accentRed cursor-pointer"
+                className="w-5 h-5 accent-accentPrimary cursor-pointer"
               />
             </div>
 
             {customEnabled && (
-              <div className="mt-4 space-y-4 pt-4 border-t border-borderBg/40 animate-fade-in">
+              <div className="mt-4 space-y-4 pt-4 border-t border-borderGlow/40 animate-fade-in">
                 <div>
                   <label className="text-[10px] text-gray-400 font-bold block mb-1">DATA PORTAL URL</label>
                   <input 
                     type="text" value={customUrl} onChange={e => setCustomUrl(e.target.value)}
                     placeholder="https://weather-bulletin.gov/records"
-                    className="w-full bg-darkBg border border-borderBg rounded p-1.5 text-xs focus:outline-none focus:border-accentRed font-mono"
+                    className="w-full bg-darkBg border border-borderGlow rounded-lg p-1.5 text-xs focus:outline-none focus:border-accentPrimary font-mono"
                   />
                   <span className="text-[9px] text-gray-500 mt-1 block">Paste weather data portal URL. The LLM Agent will autonomously extract coordinates & variables.</span>
                 </div>
@@ -732,7 +936,7 @@ export default function IngestionStep({ sessionId, onIngestSuccess }: IngestionS
 
       {/* API Key warning */}
       {!era5Key && !imdKey && !nasaUser && (
-        <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-4 mt-6 flex items-start gap-3">
+        <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-4 mt-6 flex items-start gap-3">
           <ShieldAlert className="w-5 h-5 text-yellow-500 shrink-0 mt-0.5" />
           <div>
             <h4 className="text-yellow-500 font-bold text-xs">Credentials Absent (Simulation Fallback Engaged)</h4>
@@ -746,10 +950,10 @@ export default function IngestionStep({ sessionId, onIngestSuccess }: IngestionS
         <button
           onClick={handleTriggerPipeline}
           disabled={isRunning}
-          className={`w-full sm:w-auto justify-center px-5 sm:px-8 py-4 rounded-xl font-extrabold text-xs sm:text-sm uppercase tracking-wider flex items-center gap-3 transition-all duration-300 ${
+          className={`w-full sm:w-auto justify-center px-5 sm:px-8 py-4 rounded-lg font-extrabold text-xs sm:text-sm uppercase tracking-wider flex items-center gap-3 transition-all duration-300 ${
             isRunning 
               ? 'bg-gray-600 cursor-not-allowed text-gray-400' 
-              : 'bg-accentRed hover:bg-accentRedHover text-white shadow-lg shadow-accentRed/30 hover:scale-105'
+              : 'bg-accentPrimary hover:bg-accentPrimaryHover text-white shadow-glass shadow-accentPrimary/30 hover:scale-105'
           }`}
         >
           {isRunning ? (
@@ -769,20 +973,33 @@ export default function IngestionStep({ sessionId, onIngestSuccess }: IngestionS
       {/* LOGS PANEL */}
       {(isRunning || logs.length > 0) && (
         <div className="mt-8">
+          
+        {isRunning && logs.length > 0 && (
+          <div className="mb-4 bg-darkBg/50 p-4 rounded-lg border border-borderGlow flex flex-col gap-2">
+            <div className="flex justify-between text-xs font-bold text-accentPrimary">
+              <span>Pipeline Progress</span>
+              <span className="animate-pulse">Processing...</span>
+            </div>
+            <div className="h-1.5 w-full bg-borderBg rounded-full overflow-hidden">
+              <div className="h-full bg-accentPrimary animate-pulse-slow shadow-neon-primary" style={{ width: '100%', animation: 'gradient-x 2s ease infinite' }}></div>
+            </div>
+          </div>
+        )}
+
           <TerminalLog logs={logs} />
         </div>
       )}
 
       {/* SAMPLING REPORT & SMART MERGE PANEL */}
       {samplingReport && !ingestStats && (
-        <div className="bg-cardBg/95 border-2 border-borderBg p-4 sm:p-6 rounded-2xl lg:rounded-3xl mt-8 shadow-2xl animate-fade-in min-w-0">
-          <h2 className="text-lg font-bold text-white mb-4 border-b border-borderBg pb-2 flex items-center gap-2">
+        <div className="glass-panel p-4 sm:p-6 rounded-lg lg:rounded-lg mt-8 shadow-glass animate-fade-in min-w-0">
+          <h2 className="text-lg font-bold text-white mb-4 border-b border-borderGlow pb-2 flex items-center gap-2">
             <span>🔬 Gridded Temporal Sampling Report</span>
-            <span className="bg-blue-500/10 border border-blue-500/30 px-2 py-0.5 rounded text-3xs font-bold text-blue-400">Analysis Complete</span>
+            <span className="bg-blue-500/10 border border-blue-500/30 px-2 py-0.5 rounded-lg text-3xs font-bold text-blue-400">Analysis Complete</span>
           </h2>
           <p className="text-xs text-gray-400 mb-6">Review the detected sampling intervals and coordinate density across ingested raw archives prior to spatial-temporal co-registration.</p>
           
-          <div className="overflow-x-auto mb-6 rounded-xl border border-borderBg bg-darkBg/50">
+          <div className="overflow-x-auto mb-6 rounded-lg border border-borderGlow bg-darkBg/50">
             <table className="min-w-full divide-y divide-borderBg text-left text-xs">
               <thead className="bg-black/40 text-gray-400 font-bold uppercase tracking-wider text-2xs">
                 <tr>
@@ -804,10 +1021,10 @@ export default function IngestionStep({ sessionId, onIngestSuccess }: IngestionS
                       <td className="px-5 py-4 font-bold text-white font-mono">{srcKey}</td>
                       <td className="px-5 py-4 truncate max-w-[200px]" title={sdata.variables.join(', ')}>{sdata.variables.join(', ')}</td>
                       <td className="px-5 py-4 font-semibold text-white">{sdata.detected_interval}</td>
-                      <td className={`px-5 py-4 font-semibold ${hasIrregular ? 'text-red-400' : 'text-green-400'}`}>
+                      <td className={`px-5 py-4 font-semibold ${hasIrregular ? 'text-accentPrimary' : 'text-green-400'}`}>
                         {sdata.irregular_gaps_pct.toFixed(1)}%
                       </td>
-                      <td className={`px-5 py-4 font-semibold ${hasMissing ? 'text-red-400' : 'text-green-400'}`}>
+                      <td className={`px-5 py-4 font-semibold ${hasMissing ? 'text-accentPrimary' : 'text-green-400'}`}>
                         {sdata.missing_timestamps_count} ({sdata.missing_timestamps_pct.toFixed(1)}%)
                       </td>
                       <td className="px-5 py-4 text-white font-mono">{sdata.duplicate_timestamps_count}</td>
@@ -819,8 +1036,8 @@ export default function IngestionStep({ sessionId, onIngestSuccess }: IngestionS
           </div>
 
           {/* Merge Recommendation Alert */}
-          <div className="bg-accentRed/5 border border-accentRed/20 rounded-xl p-4 mb-8">
-            <h4 className="text-accentRed font-extrabold text-xs uppercase tracking-wider mb-1">Coarsest Alignment Recommendation</h4>
+          <div className="bg-accentPrimary/5 border border-accentPrimary/20 rounded-lg p-4 mb-8">
+            <h4 className="text-accentPrimary font-extrabold text-xs uppercase tracking-wider mb-1">Coarsest Alignment Recommendation</h4>
             <p className="text-2xs text-gray-400 leading-relaxed">
               Recommended merge interval: <span className="text-white font-bold">{samplingReport.recommended_common_interval}</span>. 
               Sources will be resampled using: <span className="text-white font-mono">mean</span> for temperature/humidity/pressure/wind variables, 
@@ -829,14 +1046,14 @@ export default function IngestionStep({ sessionId, onIngestSuccess }: IngestionS
           </div>
 
           {/* User Overrides Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 border-t border-borderBg/40 pt-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 border-t border-borderGlow/40 pt-6">
             {/* Target Interval Selection */}
             <div>
               <label className="text-xs text-gray-400 font-bold uppercase block mb-2">Target Resampling Interval</label>
               <select
                 value={targetMergeInterval}
                 onChange={e => setTargetMergeInterval(e.target.value)}
-                className="w-full bg-darkBg border border-borderBg text-gray-200 rounded-xl p-3 text-sm focus:outline-none focus:border-accentRed font-semibold"
+                className="w-full bg-darkBg border border-borderGlow text-gray-200 rounded-lg p-3 text-sm focus:outline-none focus:border-accentPrimary font-semibold"
               >
                 {['1-hourly', '3-hourly', '6-hourly', '12-hourly', 'Daily', 'Weekly'].filter(intervalOption => {
                   const ranks: Record<string, number> = {
@@ -862,14 +1079,14 @@ export default function IngestionStep({ sessionId, onIngestSuccess }: IngestionS
             {/* Aggregation Rules Selection */}
             <div>
               <label className="text-xs text-gray-400 font-bold uppercase block mb-2">Per-Variable Aggregation Methods</label>
-              <div className="bg-darkBg border border-borderBg rounded-xl p-4 max-h-[220px] overflow-y-auto space-y-3 custom-scrollbar">
+              <div className="bg-darkBg border border-borderGlow rounded-lg p-4 max-h-[220px] overflow-y-auto space-y-3 custom-scrollbar">
                 {Object.keys(variableAggRules).map(v => (
                   <div key={v} className="flex justify-between items-center text-xs">
                     <span className="font-mono text-gray-300 truncate max-w-[180px]">{v}</span>
                     <select
                       value={variableAggRules[v]}
                       onChange={e => setVariableAggRules(prev => ({ ...prev, [v]: e.target.value }))}
-                      className="bg-cardBg border border-borderBg text-2xs text-gray-300 rounded p-1 focus:outline-none"
+                      className="glass-panel text-2xs text-gray-300 rounded-lg p-1 focus:outline-none"
                     >
                       <option value="mean">mean</option>
                       <option value="max">max</option>
@@ -884,14 +1101,14 @@ export default function IngestionStep({ sessionId, onIngestSuccess }: IngestionS
           </div>
 
           {/* Confirm & Merge Trigger */}
-          <div className="mt-8 pt-4 border-t border-borderBg/30 flex justify-center">
+          <div className="mt-8 pt-4 border-t border-borderGlow/30 flex justify-center">
             <button
               onClick={handleConfirmMerge}
               disabled={isMerging}
-              className={`w-full sm:w-auto justify-center px-5 sm:px-8 py-3.5 rounded-xl font-extrabold text-xs sm:text-sm uppercase tracking-wider flex items-center gap-3 transition-all ${
+              className={`w-full sm:w-auto justify-center px-5 sm:px-8 py-3.5 rounded-lg font-extrabold text-xs sm:text-sm uppercase tracking-wider flex items-center gap-3 transition-all ${
                 isMerging 
                   ? 'bg-gray-600 cursor-not-allowed text-gray-400' 
-                  : 'bg-successGreen hover:bg-successGreenHover text-white shadow-lg shadow-successGreen/25 hover:scale-105'
+                  : 'bg-successGreen hover:bg-successGreenHover text-white shadow-glass shadow-successGreen/25 hover:scale-105'
               }`}
             >
               {isMerging ? (
@@ -909,24 +1126,24 @@ export default function IngestionStep({ sessionId, onIngestSuccess }: IngestionS
 
       {/* INGEST STATS & PREVIEW TABLE */}
       {ingestStats && (
-        <div className="mt-8 border-t border-borderBg pt-8">
+        <div className="mt-8 border-t border-borderGlow pt-8">
           <h2 className="text-lg font-bold text-white mb-4">Ingestion Results</h2>
           
           <div className="grid grid-cols-1 md:grid-cols-5 gap-5 lg:gap-6">
             {/* stats card */}
-            <div className="bg-cardBg border border-borderBg p-5 rounded-xl md:col-span-2">
+            <div className="glass-panel p-5 rounded-lg md:col-span-2">
               <h3 className="font-bold text-sm text-white mb-3">Dataset Statistics</h3>
               <div className="space-y-2 text-xs font-semibold">
-                <div className="flex justify-between border-b border-borderBg pb-1.5"><span className="text-gray-400">Total Rows:</span><span className="text-white">{ingestStats.total_rows.toLocaleString()}</span></div>
-                <div className="flex justify-between border-b border-borderBg pb-1.5"><span className="text-gray-400">Total Columns:</span><span className="text-white">{ingestStats.total_columns}</span></div>
-                <div className="flex justify-between border-b border-borderBg pb-1.5"><span className="text-gray-400">File Size:</span><span className="text-white">{ingestStats.file_size}</span></div>
-                <div className="flex justify-between border-b border-borderBg pb-1.5"><span className="text-gray-400">Date Range:</span><span className="text-white text-right">{ingestStats.date_range}</span></div>
+                <div className="flex justify-between border-b border-borderGlow pb-1.5"><span className="text-gray-400">Total Rows:</span><span className="text-white">{ingestStats.total_rows.toLocaleString()}</span></div>
+                <div className="flex justify-between border-b border-borderGlow pb-1.5"><span className="text-gray-400">Total Columns:</span><span className="text-white">{ingestStats.total_columns}</span></div>
+                <div className="flex justify-between border-b border-borderGlow pb-1.5"><span className="text-gray-400">File Size:</span><span className="text-white">{ingestStats.file_size}</span></div>
+                <div className="flex justify-between border-b border-borderGlow pb-1.5"><span className="text-gray-400">Date Range:</span><span className="text-white text-right">{ingestStats.date_range}</span></div>
                 <div className="flex justify-between pt-1"><span className="text-gray-400">Sources Merged:</span><span className="text-successGreen font-bold">{ingestStats.sources_included.join(', ')}</span></div>
               </div>
             </div>
             
             {/* download card */}
-            <div className="bg-cardBg border border-borderBg p-5 rounded-xl md:col-span-3 flex flex-col justify-center items-center text-center">
+            <div className="glass-panel p-5 rounded-lg md:col-span-3 flex flex-col justify-center items-center text-center">
               <div className="w-12 h-12 bg-successGreen/25 rounded-full flex items-center justify-center mb-3">
                 <Download className="w-6 h-6 text-successGreen" />
               </div>
