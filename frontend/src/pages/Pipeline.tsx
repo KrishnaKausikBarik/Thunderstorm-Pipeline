@@ -12,7 +12,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   Satellite, Database, RotateCcw,
   FlaskConical, Layers, Cpu, CheckCircle2,
-  ChevronRight, Zap, Activity, LogOut
+  ChevronRight, Activity, LogOut
 } from 'lucide-react';
 
 const STEPS = [

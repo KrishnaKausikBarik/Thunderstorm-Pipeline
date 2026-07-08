@@ -1,0 +1,15 @@
+{
+  "experimentalServices": {
+    "frontend": {
+      "root": "frontend",
+      "routePrefix": "/",
+      "framework": "vite",
+      "buildCommand": "vite build"
+    },
+    "backend": {
+      "root": "backend",
+      "routePrefix": "/_/backend",
+      "entrypoint": "main.py"
+    }
+  }
+}

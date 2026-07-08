@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
-import { Zap, ArrowRight, LogOut } from "lucide-react";
+import { ArrowRight, LogOut } from "lucide-react";
 import { auth } from "../config/firebase";
 
 export default function GlobalNavbar() {
