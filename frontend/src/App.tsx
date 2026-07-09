@@ -8,6 +8,7 @@ import Pipeline from './pages/Pipeline';
 import History from './pages/History';
 import GlobalNavbar from './components/GlobalNavbar';
 import GlobalFooter from './components/GlobalFooter';
+import ToastContainer from './components/ToastContainer';
 
 // Wrapper that hides navbar/footer on full-screen routes
 function Layout() {
@@ -16,6 +17,7 @@ function Layout() {
 
   return (
     <div className="flex flex-col min-h-screen" style={{ backgroundColor: 'var(--bg)' }}>
+      <ToastContainer />
       {!hideChrome && <GlobalNavbar />}
       <div className="flex-1 flex flex-col relative z-0">
         <Routes>

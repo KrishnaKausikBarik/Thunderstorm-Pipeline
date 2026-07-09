@@ -26,6 +26,7 @@ from statsmodels.stats.outliers_influence import variance_inflation_factor
 from formulas import FORMULA_CATALOG, get_column_case_insensitive
 from mock_data import generate_mock_weather_data
 from utils import get_session_dir, merge_csvs, compile_eda_html_report, compile_dimensionality_html_report
+from otp_auth import generate_otp, store_otp, verify_otp, send_otp_email, create_custom_token
 
 # New Ingestion & Sampling analyzer imports
 from ingestion.llm_agent import IngestionAgent
@@ -65,6 +66,14 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# ── OTP Auth Models ──────────────────────────────────────────────
+class OTPSendRequest(BaseModel):
+    email: str
+
+class OTPVerifyRequest(BaseModel):
+    email: str
+    otp: str
 
 # Request Models
 class IngestConfig(BaseModel):
@@ -1133,6 +1142,31 @@ async def download_file(filename: str, session_id: str = Query(...)):
         media_type = "text/html"
         
     return FileResponse(path=file_path, filename=filename, media_type=media_type)
+
+# ── OTP Authentication Endpoints ─────────────────────────────────
+@app.post("/api/auth/send-otp")
+async def api_send_otp(req: OTPSendRequest):
+    """Generate a 6-digit OTP and email it to the user."""
+    otp = generate_otp()
+    store_otp(req.email, otp)
+    try:
+        send_otp_email(req.email, otp)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to send OTP email: {e}")
+    return {"success": True, "message": "OTP sent to your email."}
+
+
+@app.post("/api/auth/verify-otp")
+async def api_verify_otp(req: OTPVerifyRequest):
+    """Verify the OTP and return a Firebase custom auth token."""
+    if not verify_otp(req.email, req.otp):
+        raise HTTPException(status_code=401, detail="Invalid or expired OTP.")
+    try:
+        token = create_custom_token(req.email)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to create auth token: {e}")
+    return {"success": True, "token": token}
+
 
 if __name__ == "__main__":
     import uvicorn
