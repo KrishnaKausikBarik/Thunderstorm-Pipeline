@@ -129,14 +129,14 @@ async def verify_otp_endpoint(req: VerifyOTPRequest):
 
     _otp_store.pop(email, None)
 
-    # Generate custom token
+    # Verify user's email in Firebase
     _init_firebase()
     try:
         user = firebase_auth.get_user_by_email(email)
+        firebase_auth.update_user(user.uid, email_verified=True)
     except firebase_auth.UserNotFoundError:
-        user = firebase_auth.create_user(email=email)
+        raise HTTPException(status_code=404, detail="User not found in Firebase.")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
-    token = firebase_auth.create_custom_token(user.uid)
-    custom_token = token.decode("utf-8") if isinstance(token, bytes) else token
-
-    return {"token": custom_token}
+    return {"message": "Email verified successfully."}

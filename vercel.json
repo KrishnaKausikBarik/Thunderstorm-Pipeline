@@ -5,6 +5,10 @@
     {
       "source": "/api/auth/(.*)",
       "destination": "/api/auth.py"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
     }
   ]
 }
