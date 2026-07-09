@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { GoogleAuthProvider, signInWithPopup, signInWithCustomToken } from 'firebase/auth';
+import { GoogleAuthProvider, signInWithRedirect, getRedirectResult, signInWithCustomToken } from 'firebase/auth';
 import { auth } from '../config/firebase';
 import { Mail, ArrowRight, Loader2 } from 'lucide-react';
 import { showToast } from '../components/ToastContainer';
@@ -17,6 +17,18 @@ export default function Login() {
   const otpInputRefs = useRef<(HTMLInputElement | null)[]>([]);
   
   const navigate = useNavigate();
+
+  // Handle Google Redirect Result on Mount
+  useEffect(() => {
+    getRedirectResult(auth).then((result) => {
+      if (result) {
+        showToast('Signed in with Google successfully!');
+        navigate('/app');
+      }
+    }).catch((err) => {
+      setError(`Google Sign-In Error: ${err.message}`);
+    });
+  }, [navigate]);
 
   // ── OTP handlers ──────────────────────────────────────────────
   const handleOtpChange = (index: number, value: string) => {
@@ -115,16 +127,9 @@ export default function Login() {
     setSuccess('');
     try {
       const provider = new GoogleAuthProvider();
-      await signInWithPopup(auth, provider);
-      showToast('Signed in with Google successfully!');
-      navigate('/app');
+      await signInWithRedirect(auth, provider);
     } catch (err: any) {
-      if (err.code === 'auth/popup-closed-by-user') return;
-      if (err.code === 'auth/popup-blocked') {
-        setError('Popup was blocked by your browser. Please allow popups for this site.');
-      } else {
-        setError(`${err.code}: ${err.message}`);
-      }
+      setError(`${err.code}: ${err.message}`);
     }
   };
 
