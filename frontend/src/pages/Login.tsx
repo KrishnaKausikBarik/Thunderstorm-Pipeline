@@ -5,7 +5,7 @@ import { auth } from '../config/firebase';
 import { Mail, ArrowRight, Loader2 } from 'lucide-react';
 import { showToast } from '../components/ToastContainer';
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+const API_BASE = import.meta.env.VITE_API_URL || (window.location.hostname === 'localhost' ? 'http://localhost:8000' : '');
 
 export default function Login() {
   const [email, setEmail] = useState('');
