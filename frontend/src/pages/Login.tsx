@@ -45,7 +45,7 @@ export default function Login() {
     getRedirectResult(auth).then((result) => {
       if (result) {
         showToast('Signed in with Google successfully!');
-        navigate('/app');
+        navigate('/app', { state: { freshLogin: true } });
       }
     }).catch((err) => {
       setError(`Google Sign-In Error: ${err.message}`);
@@ -96,7 +96,7 @@ export default function Login() {
         setError('Please verify your email to continue.');
       } else {
         showToast('Signed in successfully!');
-        navigate('/app');
+        navigate('/app', { state: { freshLogin: true } });
       }
     } catch (err: any) {
       setError(getFirebaseErrorMessage(err.code));
@@ -193,7 +193,7 @@ export default function Login() {
       }
       
       showToast('Email verified successfully!');
-      navigate('/app');
+      navigate('/app', { state: { freshLogin: true } });
     } catch (err: any) {
       setError(err.message || 'Failed to verify OTP');
       setOtpDigits(['', '', '', '', '', '']);

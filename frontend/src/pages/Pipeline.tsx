@@ -8,7 +8,7 @@ import DimReductionStep from '../components/DimReductionStep';
 import { useAuth } from '../contexts/AuthContext';
 
 import { auth } from '../config/firebase';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import {
   Satellite, Database, RotateCcw,
   FlaskConical, Layers, Cpu, CheckCircle2,
@@ -50,6 +50,7 @@ export default function Pipeline() {
   const { currentUser } = useAuth();
 
   const navigate = useNavigate();
+  const location = useLocation();
 
   // Session management
   const [sessionId, setSessionId] = useState<string>('');
@@ -67,6 +68,17 @@ export default function Pipeline() {
 
   // Initialize session from localStorage
   useEffect(() => {
+    if (location.state?.freshLogin) {
+      localStorage.removeItem('met_session_id');
+      localStorage.removeItem('met_current_step');
+      localStorage.removeItem('met_unlocked_steps');
+      localStorage.removeItem('met_raw_filename');
+      localStorage.removeItem('met_cleaned_filename');
+      localStorage.removeItem('met_derived_filename');
+      // Clear the state so a page refresh doesn't trigger this again
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+
     let sessId = localStorage.getItem('met_session_id');
     if (!sessId) {
       sessId = 'session_' + Math.random().toString(36).substring(2, 15);

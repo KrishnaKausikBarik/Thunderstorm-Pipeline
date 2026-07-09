@@ -30,7 +30,7 @@ export default function Home() {
 
         {/* Animated blurred blobs */}
         <div
-          className="absolute -top-40 -left-40 h-[620px] w-[620px] rounded-full blur-[120px]"
+          className="absolute -top-20 -left-20 h-[300px] w-[300px] md:-top-40 md:-left-40 md:h-[620px] md:w-[620px] rounded-full blur-[80px] md:blur-[120px]"
           style={{
             background: "radial-gradient(circle, #8b5cf6 0%, transparent 70%)",
             opacity: 0.5,
@@ -38,7 +38,7 @@ export default function Home() {
           }}
         />
         <div
-          className="absolute top-40 -right-40 h-[680px] w-[680px] rounded-full blur-[130px]"
+          className="absolute top-20 -right-20 h-[350px] w-[350px] md:top-40 md:-right-40 md:h-[680px] md:w-[680px] rounded-full blur-[90px] md:blur-[130px]"
           style={{
             background: "radial-gradient(circle, #ec4899 0%, transparent 70%)",
             opacity: 0.45,
@@ -46,7 +46,7 @@ export default function Home() {
           }}
         />
         <div
-          className="absolute top-[820px] left-1/4 h-[560px] w-[560px] rounded-full blur-[120px]"
+          className="absolute top-[300px] -left-10 h-[250px] w-[250px] md:top-[820px] md:left-1/4 md:h-[560px] md:w-[560px] rounded-full blur-[80px] md:blur-[120px]"
           style={{
             background: "radial-gradient(circle, #8b5cf6 0%, transparent 70%)",
             opacity: 0.5,
@@ -54,7 +54,7 @@ export default function Home() {
           }}
         />
         <div
-          className="absolute bottom-0 right-1/4 h-[500px] w-[500px] rounded-full blur-[130px]"
+          className="absolute bottom-10 -right-10 h-[250px] w-[250px] md:bottom-0 md:right-1/4 md:h-[500px] md:w-[500px] rounded-full blur-[90px] md:blur-[130px]"
           style={{
             background: "radial-gradient(circle, #ec4899 0%, transparent 70%)",
             opacity: 0.45,
