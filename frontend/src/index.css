@@ -388,3 +388,61 @@ table { width: max-content; min-width: 100%; }
   to   { transform: perspective(800px) rotateY(0deg) translateY(0) scale(1); opacity: 1; }
 }
 
+/* =========================================
+   PREMIUM LOGIN CARD
+   ========================================= */
+
+.glass-card-premium {
+  position: relative;
+  background: rgba(14, 15, 23, 0.45);
+  backdrop-filter: blur(40px) saturate(150%);
+  -webkit-backdrop-filter: blur(40px) saturate(150%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 32px;
+  box-shadow: 0 30px 60px -12px rgba(0, 0, 0, 0.6),
+              inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  overflow: hidden;
+}
+
+/* Glowing top edge */
+.glass-card-premium::before {
+  content: '';
+  position: absolute;
+  top: -1px;
+  left: 20%;
+  right: 20%;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--accent-primary) 30%, var(--accent-secondary) 70%, transparent);
+  box-shadow: 0 0 24px 4px var(--accent-primary);
+  opacity: 0.8;
+  z-index: 10;
+}
+
+/* Static Noise Texture Overlay */
+.bg-noise {
+  position: absolute;
+  inset: 0;
+  opacity: 0.25;
+  mix-blend-mode: overlay;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+}
+
+/* =========================================
+   FORM AUTOFILL OVERRIDES
+   ========================================= */
+input:-webkit-autofill,
+input:-webkit-autofill:hover, 
+input:-webkit-autofill:focus, 
+input:-webkit-autofill:active {
+    -webkit-box-shadow: 0 0 0 30px #13141c inset !important;
+    -webkit-text-fill-color: white !important;
+    transition: background-color 5000s ease-in-out 0s;
+    caret-color: white;
+}
+
+input[type="password"]::-ms-reveal,
+input[type="password"]::-ms-clear {
+    display: none;
+}
+

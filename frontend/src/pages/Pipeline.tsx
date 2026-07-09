@@ -237,13 +237,13 @@ export default function Pipeline() {
                   disabled={!isUnlocked}
                   className={`group w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition-all duration-200 ${
                     isActive
-                      ? 'text-white'
+                      ? 'text-white btn-gradient-shift'
                       : isUnlocked
                         ? 'hover:opacity-90'
                         : 'opacity-35 cursor-not-allowed'
                   }`}
                   style={{
-                    backgroundColor: isActive ? 'var(--accent-primary)' : 'transparent',
+                    backgroundColor: 'transparent',
                     color: isActive ? '#fff' : 'var(--text-secondary)',
                   }}
                   onMouseEnter={e => {

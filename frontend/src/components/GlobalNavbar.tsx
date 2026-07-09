@@ -16,9 +16,9 @@ export default function GlobalNavbar() {
   };
 
   return (
-    <div className="fixed inset-x-0 top-4 z-50 flex justify-center px-4 animate-fade-up pointer-events-none">
-      <div className="glass-nav-wrapper rounded-[22px] p-[1px] transition-all duration-500 hover:glass-nav-wrapper-hover pointer-events-auto">
-        <nav className="glass-nav backdrop-blur-md flex w-full max-w-6xl items-center justify-between rounded-[21px] px-4 py-3 sm:px-6 gap-4 sm:gap-8">
+    <div className="fixed inset-x-0 top-4 z-50 flex justify-center px-4 pointer-events-none">
+      <div className="rounded-[22px] p-[1px] pointer-events-auto bg-gradient-to-b from-white/10 to-white/5 shadow-2xl">
+        <nav className="flex w-full max-w-6xl items-center justify-between rounded-[21px] px-4 py-3 sm:px-6 gap-4 sm:gap-8 bg-black/50 backdrop-blur-[3px] border border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.1)]">
 
           {/* Logo */}
           <div className="flex items-center gap-3 cursor-pointer" onClick={() => navigate('/')}>
