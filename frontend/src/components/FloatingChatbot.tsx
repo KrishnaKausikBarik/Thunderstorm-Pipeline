@@ -88,11 +88,11 @@ export default function FloatingChatbot() {
           isOpen ? 'scale-100 opacity-100 translate-y-0' : 'scale-90 opacity-0 translate-y-10 pointer-events-none absolute bottom-16 right-0'
         }`}
       >
-        <div className="glass-card-premium relative overflow-hidden w-[350px] sm:w-[400px] h-[500px] max-h-[80vh] flex flex-col shadow-2xl rounded-2xl border border-white/10">
-          <div className="bg-noise" />
+        <div className="bg-[#0B0F19] relative overflow-hidden w-[350px] sm:w-[400px] h-[500px] max-h-[80vh] flex flex-col shadow-[0_0_50px_rgba(0,0,0,0.5)] rounded-2xl border border-white/10">
+          <div className="bg-noise opacity-30" />
           
           {/* Header */}
-          <div className="relative z-10 flex items-center justify-between p-4 border-b border-white/10 bg-black/20 backdrop-blur-md">
+          <div className="relative z-10 flex items-center justify-between p-4 border-b border-white/10 bg-[#12121A]">
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-accentPrimary to-accentSecondary flex items-center justify-center shadow-[0_0_15px_rgba(139,92,246,0.5)]">
                 <Bot className="w-4 h-4 text-white" />
@@ -149,7 +149,7 @@ export default function FloatingChatbot() {
           </div>
 
           {/* Input Area */}
-          <div className="relative z-10 p-4 border-t border-white/10 bg-black/20 backdrop-blur-md">
+          <div className="relative z-10 p-4 border-t border-white/10 bg-[#12121A]">
             <form onSubmit={handleSend} className="relative flex items-center">
               <input
                 type="text"
