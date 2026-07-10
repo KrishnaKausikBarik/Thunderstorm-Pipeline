@@ -11,7 +11,14 @@ from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel, SecretStr
 from typing import List, Dict, Any, Optional
 from weather_summary import WeatherSummaryError, generate_weather_summary
+import requests
 
+class ChatMessage(BaseModel):
+    role: str
+    content: str
+
+class ChatRequest(BaseModel):
+    messages: List[ChatMessage]
 import pandas as pd
 import numpy as np
 
@@ -1166,6 +1173,56 @@ async def api_verify_otp(req: OTPVerifyRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to create auth token: {e}")
     return {"success": True, "token": token}
+
+
+# ── Chatbot API Endpoints ────────────────────────────────────────
+@app.post("/api/chat")
+async def chat_endpoint(req: ChatRequest):
+    """Securely proxy chat requests to Gemini API using backend key."""
+    api_key = os.getenv("GEMINI_API_KEY")
+    if not api_key:
+        raise HTTPException(status_code=500, detail="GEMINI_API_KEY is not configured on the server.")
+        
+    model = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
+    
+    # Convert our simplified messages to Gemini format
+    gemini_contents = []
+    for msg in req.messages:
+        role = "model" if msg.role == "assistant" else "user"
+        gemini_contents.append({
+            "role": role,
+            "parts": [{"text": msg.content}]
+        })
+        
+    payload = {
+        "systemInstruction": {
+            "parts": [{"text": "You are a helpful, expert meteorological AI assistant integrated into the Thunderstorm Pipeline application. Provide concise, clear, and highly accurate answers regarding weather, data science, and pipeline operations."}]
+        },
+        "contents": gemini_contents,
+        "generationConfig": {
+            "temperature": 0.4,
+            "maxOutputTokens": 1024,
+        }
+    }
+    
+    try:
+        def do_request():
+            return requests.post(url, json=payload, timeout=30)
+            
+        response = await asyncio.to_thread(do_request)
+        if response.status_code != 200:
+            raise HTTPException(status_code=502, detail=f"Gemini API Error: {response.text}")
+            
+        data = response.json()
+        try:
+            reply_text = data["candidates"][0]["content"]["parts"][0]["text"]
+            return {"reply": reply_text}
+        except (KeyError, IndexError):
+            raise HTTPException(status_code=502, detail="Invalid response format from Gemini")
+            
+    except requests.exceptions.RequestException as e:
+        raise HTTPException(status_code=503, detail=f"Failed to connect to AI provider: {str(e)}")
 
 
 if __name__ == "__main__":

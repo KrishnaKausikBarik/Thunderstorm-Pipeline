@@ -4,6 +4,7 @@ import IngestionStep from '../components/IngestionStep';
 import EDAStep from '../components/EDAStep';
 import DerivedStep from '../components/DerivedStep';
 import DimReductionStep from '../components/DimReductionStep';
+import FloatingChatbot from '../components/FloatingChatbot';
 
 import { useAuth } from '../contexts/AuthContext';
 
@@ -447,6 +448,9 @@ export default function Pipeline() {
           </div>
         </main>
       </div>
+
+      {/* Floating Gemini Chatbot */}
+      <FloatingChatbot />
     </div>
   );
 }
