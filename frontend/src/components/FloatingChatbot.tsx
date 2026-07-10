@@ -45,8 +45,19 @@ export default function FloatingChatbot() {
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || 'Failed to get response');
+        let errorMsg = `Server error: ${response.status}`;
+        try {
+          const textData = await response.text();
+          try {
+            const errorData = JSON.parse(textData);
+            errorMsg = errorData.detail || errorMsg;
+          } catch {
+            if (textData.trim()) errorMsg = textData.slice(0, 150);
+          }
+        } catch (e) {
+          // Ignore text parsing errors
+        }
+        throw new Error(errorMsg);
       }
 
       const data = await response.json();
