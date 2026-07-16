@@ -663,7 +663,7 @@ export default function DimReductionStep({ sessionId, derivedFilename, onFinalSu
                 <span className="text-successGreen">✓</span> DATASET OPTIMIZED & FINALIZED
               </h3>
               <p className="text-xs text-gray-400 mt-1">{finalizeResponse.message}</p>
-              <p className="text-2xs text-gray-500 mt-1 font-semibold">Final schema shape: <span className="text-white font-mono">{finalizeResponse.stats.shape[0]} rows x {finalizeResponse.stats.shape[1]} columns</span>.</p>
+              <p className="text-2xs text-gray-500 mt-1 font-semibold">Final schema shape: <span className="text-white font-mono">{finalizeResponse?.stats?.rows || '?'} rows x {finalizeResponse?.stats?.columns || '?'} columns</span>.</p>
             </div>
             
             <div className="flex flex-col sm:flex-row flex-wrap gap-3 sm:gap-4 shrink-0 w-full md:w-auto">
