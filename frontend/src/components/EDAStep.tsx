@@ -465,11 +465,11 @@ export default function EDAStep({ sessionId, rawFilename, onEDASuccess }: EDASte
                   <div>
                     <h3 className="font-extrabold text-sm text-white mb-4 uppercase tracking-wider text-accentPrimary">Preprocessing Log Summary</h3>
                     <div className="space-y-4 text-xs font-semibold text-gray-300">
-                      <div className="flex justify-between border-b border-borderGlow pb-1.5"><span>Duplicate rows removed:</span><span className="text-white">{appliedResponse.stats.shape[0] === analysisResults?.shape[0] ? '0' : analysisResults?.duplicate_count}</span></div>
-                      <div className="flex justify-between border-b border-borderGlow pb-1.5"><span>Object columns encoded:</span><span className="text-white">{analysisResults?.encoded_columns.length || 0}</span></div>
-                      <div className="flex justify-between border-b border-borderGlow pb-1.5"><span>Values imputed:</span><span className="text-white text-successGreen">{appliedResponse.message.match(/(\d+) values imputed/)?.[1] || '0'}</span></div>
-                      <div className="flex justify-between border-b border-borderGlow pb-1.5"><span>Outliers capped:</span><span className="text-white text-accentPrimary">{appliedResponse.message.match(/(\d+) outlier values capped/)?.[1] || '0'}</span></div>
-                      <div className="flex justify-between"><span>Final Dataset Shape:</span><span className="text-white font-mono text-sm">{appliedResponse.stats.shape[0]} rows x {appliedResponse.stats.shape[1]} cols</span></div>
+                      <div className="flex justify-between border-b border-borderGlow pb-1.5"><span>Duplicate rows removed:</span><span className="text-white">{appliedResponse?.stats?.shape?.[0] === analysisResults?.shape?.[0] ? '0' : (analysisResults?.duplicate_count || 0)}</span></div>
+                      <div className="flex justify-between border-b border-borderGlow pb-1.5"><span>Object columns encoded:</span><span className="text-white">{analysisResults?.encoded_columns?.length || 0}</span></div>
+                      <div className="flex justify-between border-b border-borderGlow pb-1.5"><span>Values imputed:</span><span className="text-white text-successGreen">{appliedResponse?.message?.match(/(\d+) values imputed/)?.[1] || '0'}</span></div>
+                      <div className="flex justify-between border-b border-borderGlow pb-1.5"><span>Outliers capped:</span><span className="text-white text-accentPrimary">{appliedResponse?.message?.match(/(\d+) outlier values capped/)?.[1] || '0'}</span></div>
+                      <div className="flex justify-between"><span>Final Dataset Shape:</span><span className="text-white font-mono text-sm">{appliedResponse?.stats?.shape?.[0] || '?'} rows x {appliedResponse?.stats?.shape?.[1] || '?'} cols</span></div>
                     </div>
                   </div>
 
