@@ -744,11 +744,11 @@ export default function DimReductionStep({ sessionId, derivedFilename, onFinalSu
                   </div>
                 </div>
 
-                {aiSummary.impacts.length > 0 && (
+                {(aiSummary.impacts || []).length > 0 && (
                   <div className="mt-5 pt-4 border-t border-borderGlow">
                     <h4 className="text-3xs text-gray-500 font-bold uppercase tracking-wider mb-3">Potential Impacts</h4>
                     <ul className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                      {aiSummary.impacts.map((impact, index) => (
+                      {(aiSummary.impacts || []).map((impact, index) => (
                         <li key={`${impact}-${index}`} className="flex items-start gap-2 text-xs text-gray-300 bg-black/20 border border-borderGlow rounded-lg p-3">
                           <AlertTriangle className="w-3.5 h-3.5 text-indigo-300 shrink-0 mt-0.5" />
                           <span>{impact}</span>
